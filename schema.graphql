@@ -509,6 +509,27 @@ type Mutation {
   deletePublicHoliday(id: ID!): Boolean!
   delegateApprovals(input: DelegateInput!): DelegationPayload!
   revokeDelegation(id: ID!): DelegationPayload!
+
+  """
+  Mark some of your notifications read, or all of them when ids is null. Returns how many changed.
+  """
+  markNotificationsRead(ids: [ID!] = null): Int!
+}
+
+type Notification {
+  id: ID!
+  kind: String!
+  title: String!
+  body: String!
+  link: String!
+  read: Boolean!
+  createdAt: DateTime!
+}
+
+type NotificationConnection {
+  nodes: [Notification!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
 }
 
 type PageInfo {
@@ -571,6 +592,10 @@ type Query {
 
   """Your approval delegations that are current or upcoming."""
   myDelegations: [Delegation!]!
+
+  """Your notifications, newest first."""
+  notifications(unreadOnly: Boolean! = false, first: Int! = 20, after: String = null): NotificationConnection!
+  unreadNotificationCount: Int!
 }
 
 input RequestLeaveInput {

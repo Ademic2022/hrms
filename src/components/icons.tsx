@@ -50,3 +50,4 @@ export const IconEyeOff = (p: IconProps) => <Icon {...p}><path d="M3 3l14 14M8.4
 export const IconUser = (p: IconProps) => <Icon {...p}><circle cx="10" cy="6.5" r="3" /><path d="M4 17c.4-3.4 2.8-5.5 6-5.5s5.6 2.1 6 5.5" /></Icon>;
 export const IconBriefcase = (p: IconProps) => <Icon {...p}><rect x="2.5" y="6" width="15" height="10.5" rx="1.5" /><path d="M7 6V4.5A1.5 1.5 0 0 1 8.5 3h3A1.5 1.5 0 0 1 13 4.5V6M2.5 10.5h15" /></Icon>;
 export const IconSitemap = (p: IconProps) => <Icon {...p}><rect x="7.5" y="2.5" width="5" height="4" rx="1" /><rect x="2.5" y="13.5" width="5" height="4" rx="1" /><rect x="12.5" y="13.5" width="5" height="4" rx="1" /><path d="M10 6.5v3.5M5 13.5V10h10v3.5" /></Icon>;
+export const IconBell = (p: IconProps) => <Icon {...p}><path d="M5 8.5a5 5 0 0 1 10 0c0 4 1.5 5.5 1.5 5.5h-13S5 12.5 5 8.5z" /><path d="M8.3 16.5a1.8 1.8 0 0 0 3.4 0" /></Icon>;

@@ -11,6 +11,7 @@ import { PERMS } from "@/lib/permissions";
 import { useSession, type Tenant } from "@/lib/session";
 
 import { IconCalendarCheck, IconCheck, IconClose, IconLogout, IconMenu, IconPencilGrid, IconSitemap, IconUser, IconUsers } from "./icons";
+import { NotificationBell } from "./Notifications";
 import { IconButton, Loading, cx } from "./ui";
 
 const LogoutDocument = graphql(`
@@ -127,10 +128,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 px-4 pb-4 pt-5">
         <Crest tenant={tenant} />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-ink">{tenant?.name}</div>
           <div className="truncate text-xs text-muted">People and payroll</div>
         </div>
+        <div className="hidden lg:block"><NotificationBell /></div>
       </div>
       <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Main">
         {sections.map((s) => (
@@ -208,6 +210,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Crest tenant={tenant} />
             <span className="truncate text-sm font-semibold text-ink">{tenant?.name}</span>
           </div>
+          <NotificationBell align="right" />
         </header>
 
         <main id="main" className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-8 sm:py-8">{children}</main>

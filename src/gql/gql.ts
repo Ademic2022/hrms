@@ -40,6 +40,9 @@ type Documents = {
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      me { permissions }\n      errors { field message }\n    }\n  }\n": typeof types.LoginDocument,
     "\n  mutation Logout {\n    logout\n  }\n": typeof types.LogoutDocument,
     "\n  query WaitingApprovals {\n    leaveApprovals { id }\n  }\n": typeof types.WaitingApprovalsDocument,
+    "\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": typeof types.NotificationListDocument,
+    "\n  query UnreadNotificationCount {\n    unreadNotificationCount\n  }\n": typeof types.UnreadNotificationCountDocument,
+    "\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n": typeof types.MarkNotificationsReadDocument,
     "\n  mutation UpdateEmployee($input: UpdateEmployeeInput!) {\n    updateEmployee(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": typeof types.UpdateEmployeeDocument,
     "\n  query JobOptions {\n    legalEntities { id name isActive }\n    departments { id name isActive legalEntity { id } }\n    locations { id name isActive legalEntity { id } }\n    jobTitles { id name isActive }\n    grades { id name isActive }\n    employees(filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }, first: 100) { nodes { id fullName } }\n  }\n": typeof types.JobOptionsDocument,
     "\n  mutation ChangeEmployeeJob($input: ChangeJobInput!) {\n    changeEmployeeJob(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": typeof types.ChangeEmployeeJobDocument,
@@ -79,6 +82,9 @@ const documents: Documents = {
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      me { permissions }\n      errors { field message }\n    }\n  }\n": types.LoginDocument,
     "\n  mutation Logout {\n    logout\n  }\n": types.LogoutDocument,
     "\n  query WaitingApprovals {\n    leaveApprovals { id }\n  }\n": types.WaitingApprovalsDocument,
+    "\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": types.NotificationListDocument,
+    "\n  query UnreadNotificationCount {\n    unreadNotificationCount\n  }\n": types.UnreadNotificationCountDocument,
+    "\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n": types.MarkNotificationsReadDocument,
     "\n  mutation UpdateEmployee($input: UpdateEmployeeInput!) {\n    updateEmployee(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": types.UpdateEmployeeDocument,
     "\n  query JobOptions {\n    legalEntities { id name isActive }\n    departments { id name isActive legalEntity { id } }\n    locations { id name isActive legalEntity { id } }\n    jobTitles { id name isActive }\n    grades { id name isActive }\n    employees(filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }, first: 100) { nodes { id fullName } }\n  }\n": types.JobOptionsDocument,
     "\n  mutation ChangeEmployeeJob($input: ChangeJobInput!) {\n    changeEmployeeJob(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": types.ChangeEmployeeJobDocument,
@@ -210,6 +216,18 @@ export function graphql(source: "\n  mutation Logout {\n    logout\n  }\n"): (ty
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query WaitingApprovals {\n    leaveApprovals { id }\n  }\n"): (typeof documents)["\n  query WaitingApprovals {\n    leaveApprovals { id }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n"): (typeof documents)["\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query UnreadNotificationCount {\n    unreadNotificationCount\n  }\n"): (typeof documents)["\n  query UnreadNotificationCount {\n    unreadNotificationCount\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n"): (typeof documents)["\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
