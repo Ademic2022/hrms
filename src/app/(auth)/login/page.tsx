@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { useMutation } from "urql";
 import { z } from "zod";
 
+import { FindWorkspace } from "@/components/auth/FindWorkspace";
 import { Notice } from "@/components/ui";
 import { AuthAlert, AuthButton, AuthField, AuthInput, AuthShell, PasswordInput } from "@/components/auth/AuthShell";
 import { graphql } from "@/gql";
@@ -88,7 +89,7 @@ function safeNext(value: string | null) {
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const { tenant, reset } = useSession();
+  const { tenant, loading, reset } = useSession();
   const [, login] = useMutation(LoginDocument);
   const [formError, setFormError] = useState<string>();
   const [needsCode, setNeedsCode] = useState(false);
@@ -116,6 +117,9 @@ function LoginForm() {
     reset();
     router.replace(safeNext(params.get("next")));
   }
+
+  // The platform's own address has no company to sign in to: find yours first.
+  if (!loading && !tenant) return <FindWorkspace />;
 
   if (needsCode) {
     return (

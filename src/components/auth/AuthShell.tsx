@@ -4,6 +4,7 @@ import { createContext, useContext, useId, useState, type ButtonHTMLAttributes, 
 
 import { initials } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { SITE } from "@/lib/site";
 
 const DEFAULT_BRAND = "#0f3d2e";
 
@@ -19,7 +20,28 @@ function textOn(hex: string) {
 }
 
 /** Split-screen frame for sign-in pages: the company's identity on one side, the form on the other. */
-export function AuthShell({ title, subtitle, children, footer }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode }) {
+interface Aside {
+  heading: string;
+  text: string;
+  points?: string[];
+}
+
+/** The product's own mark, for pages on the platform's address (no company yet). */
+function ProductMark() {
+  return (
+    <svg viewBox="0 0 32 32" className="h-12 w-12" aria-hidden>
+      <rect width="32" height="32" rx="8" fill="#fffcf5" />
+      <circle cx="16" cy="11" r="4" fill="#e9a23b" />
+      <path d="M8 24c.8-4.4 4-7 8-7s7.2 2.6 8 7" fill="#0f3d2e" opacity=".92" />
+    </svg>
+  );
+}
+
+export function AuthShell({ title, subtitle, children, footer, aside }: {
+  title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode;
+  /** What the brand panel says. Defaults suit a company's sign-in page. */
+  aside?: Aside;
+}) {
   const { tenant, loading } = useSession();
   const brand = tenant?.primaryColor || DEFAULT_BRAND;
   const ink = textOn(brand);
@@ -41,24 +63,36 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
             {tenant?.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={tenant.logoUrl} alt="" className="h-12 w-12 rounded-xl bg-white object-contain p-1.5" />
-            ) : (
+            ) : tenant ? (
               <span className="grid h-12 w-12 place-items-center rounded-xl bg-white/15 font-display text-lg font-semibold ring-1 ring-inset ring-white/25">
-                {tenant ? initials(tenant.name) : "HR"}
+                {initials(tenant.name)}
               </span>
+            ) : (
+              <ProductMark />
             )}
-            <div className="min-w-0 truncate font-display text-lg font-semibold leading-tight sm:text-xl">{tenant?.name ?? "HRMS"}</div>
+            <div className="min-w-0 truncate font-display text-lg font-semibold leading-tight sm:text-xl">{tenant?.name ?? SITE.name}</div>
           </div>
 
           <div className="mt-auto hidden lg:block">
             <div className="h-px w-12 bg-current opacity-40" />
             <p className="mt-6 max-w-sm font-display text-[34px] font-medium leading-[1.15] tracking-[-0.01em]">
-              Your people, their jobs and their pay, in one secure place.
+              {aside?.heading ?? "Your people, their jobs and their pay, in one secure place."}
             </p>
             <p className="mt-4 max-w-sm text-[15px] leading-relaxed opacity-75">
-              {tenant
+              {aside?.text ?? (tenant
                 ? `For employees and managers at ${tenant.name}. Sign in with your work email address.`
-                : "Sign in with your work email address."}
+                : "Sign in with your work email address.")}
             </p>
+            {aside?.points && (
+              <ul className="mt-8 space-y-3 text-[15px]">
+                {aside.points.map((point) => (
+                  <li key={point} className="flex gap-3">
+                    <svg viewBox="0 0 16 16" className="mt-1 h-4 w-4 flex-none opacity-80" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="m3 8.5 3.2 3L13 5" /></svg>
+                    <span className="opacity-90">{point}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </aside>

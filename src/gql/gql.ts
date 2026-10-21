@@ -69,12 +69,16 @@ type Documents = {
     "\n  mutation VerifyMfa($code: String!) {\n    verifyMfa(code: $code) {\n      me { permissions }\n      errors { field message }\n    }\n  }\n": typeof types.VerifyMfaDocument,
     "\n  query PasswordLink($uid: String!, $token: String!) {\n    passwordLink(uid: $uid, token: $token)\n  }\n": typeof types.PasswordLinkDocument,
     "\n  mutation SetPassword($input: SetPasswordInput!) {\n    setPassword(input: $input) { ok errors { field message } }\n  }\n": typeof types.SetPasswordDocument,
+    "\n  mutation RedeemWelcome($token: String!) {\n    redeemWelcome(token: $token) { me { mfaSetupRequired } errors { message } }\n  }\n": typeof types.RedeemWelcomeDocument,
+    "\n  query SlugCheck($slug: String!) {\n    slugCheck(slug: $slug)\n  }\n": typeof types.SlugCheckDocument,
+    "\n  mutation SignUp($input: SignUpInput!) {\n    signUp(input: $input) { url errors { field message } }\n  }\n": typeof types.SignUpDocument,
     "\n  mutation Logout {\n    logout\n  }\n": typeof types.LogoutDocument,
     "\n  query WaitingApprovals {\n    leaveApprovals { id }\n  }\n": typeof types.WaitingApprovalsDocument,
     "\n  query ChangesWaiting {\n    pendingChangeRequests { id }\n  }\n": typeof types.ChangesWaitingDocument,
     "\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": typeof types.NotificationListDocument,
     "\n  query UnreadNotificationCount {\n    unreadNotificationCount\n  }\n": typeof types.UnreadNotificationCountDocument,
     "\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n": typeof types.MarkNotificationsReadDocument,
+    "\n  mutation EmailMyCompanies($email: String!) {\n    emailMyCompanies(email: $email)\n  }\n": typeof types.EmailMyCompaniesDocument,
     "\n  query EmployeeDocuments($employeeId: ID!) {\n    employeeDocuments(employeeId: $employeeId) {\n      id title originalName contentType size expiresOn notes uploadedBy createdAt\n      category { id name requiresExpiry employeeCanView managerCanView }\n    }\n  }\n": typeof types.EmployeeDocumentsDocument,
     "\n  query DocumentCategoryOptions {\n    documentCategories { id name requiresExpiry employeeCanView managerCanView isActive }\n  }\n": typeof types.DocumentCategoryOptionsDocument,
     "\n  mutation DocumentDownloadUrl($id: ID!) {\n    documentDownloadUrl(id: $id)\n  }\n": typeof types.DocumentDownloadUrlDocument,
@@ -157,12 +161,16 @@ const documents: Documents = {
     "\n  mutation VerifyMfa($code: String!) {\n    verifyMfa(code: $code) {\n      me { permissions }\n      errors { field message }\n    }\n  }\n": types.VerifyMfaDocument,
     "\n  query PasswordLink($uid: String!, $token: String!) {\n    passwordLink(uid: $uid, token: $token)\n  }\n": types.PasswordLinkDocument,
     "\n  mutation SetPassword($input: SetPasswordInput!) {\n    setPassword(input: $input) { ok errors { field message } }\n  }\n": types.SetPasswordDocument,
+    "\n  mutation RedeemWelcome($token: String!) {\n    redeemWelcome(token: $token) { me { mfaSetupRequired } errors { message } }\n  }\n": types.RedeemWelcomeDocument,
+    "\n  query SlugCheck($slug: String!) {\n    slugCheck(slug: $slug)\n  }\n": types.SlugCheckDocument,
+    "\n  mutation SignUp($input: SignUpInput!) {\n    signUp(input: $input) { url errors { field message } }\n  }\n": types.SignUpDocument,
     "\n  mutation Logout {\n    logout\n  }\n": types.LogoutDocument,
     "\n  query WaitingApprovals {\n    leaveApprovals { id }\n  }\n": types.WaitingApprovalsDocument,
     "\n  query ChangesWaiting {\n    pendingChangeRequests { id }\n  }\n": types.ChangesWaitingDocument,
     "\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": types.NotificationListDocument,
     "\n  query UnreadNotificationCount {\n    unreadNotificationCount\n  }\n": types.UnreadNotificationCountDocument,
     "\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n": types.MarkNotificationsReadDocument,
+    "\n  mutation EmailMyCompanies($email: String!) {\n    emailMyCompanies(email: $email)\n  }\n": types.EmailMyCompaniesDocument,
     "\n  query EmployeeDocuments($employeeId: ID!) {\n    employeeDocuments(employeeId: $employeeId) {\n      id title originalName contentType size expiresOn notes uploadedBy createdAt\n      category { id name requiresExpiry employeeCanView managerCanView }\n    }\n  }\n": types.EmployeeDocumentsDocument,
     "\n  query DocumentCategoryOptions {\n    documentCategories { id name requiresExpiry employeeCanView managerCanView isActive }\n  }\n": types.DocumentCategoryOptionsDocument,
     "\n  mutation DocumentDownloadUrl($id: ID!) {\n    documentDownloadUrl(id: $id)\n  }\n": types.DocumentDownloadUrlDocument,
@@ -427,6 +435,18 @@ export function graphql(source: "\n  mutation SetPassword($input: SetPasswordInp
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "\n  mutation RedeemWelcome($token: String!) {\n    redeemWelcome(token: $token) { me { mfaSetupRequired } errors { message } }\n  }\n"): (typeof documents)["\n  mutation RedeemWelcome($token: String!) {\n    redeemWelcome(token: $token) { me { mfaSetupRequired } errors { message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query SlugCheck($slug: String!) {\n    slugCheck(slug: $slug)\n  }\n"): (typeof documents)["\n  query SlugCheck($slug: String!) {\n    slugCheck(slug: $slug)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SignUp($input: SignUpInput!) {\n    signUp(input: $input) { url errors { field message } }\n  }\n"): (typeof documents)["\n  mutation SignUp($input: SignUpInput!) {\n    signUp(input: $input) { url errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "\n  mutation Logout {\n    logout\n  }\n"): (typeof documents)["\n  mutation Logout {\n    logout\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -448,6 +468,10 @@ export function graphql(source: "\n  query UnreadNotificationCount {\n    unread
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n"): (typeof documents)["\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation EmailMyCompanies($email: String!) {\n    emailMyCompanies(email: $email)\n  }\n"): (typeof documents)["\n  mutation EmailMyCompanies($email: String!) {\n    emailMyCompanies(email: $email)\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -6,7 +6,8 @@ import { NextResponse, type NextRequest } from "next/server";
  * and what the person may see (PRD §10.2: UI checks are cosmetic, the backend enforces).
  */
 export function proxy(request: NextRequest) {
-  if (request.cookies.has("sessionid")) return NextResponse.next();
+  // The root decides for itself: the homepage on the platform's address, the app on a company's.
+  if (request.nextUrl.pathname === "/" || request.cookies.has("sessionid")) return NextResponse.next();
   const login = new URL("/login", request.url);
   const next = request.nextUrl.pathname + request.nextUrl.search;
   if (next !== "/") login.searchParams.set("next", next);
@@ -15,5 +16,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Everything except sign-in, API paths forwarded to Django, and static files.
-  matcher: ["/((?!login|forgot-password|set-password|graphql|api/|_next/|favicon\\.ico|.*\\.[a-z0-9]+$).*)"],
+  matcher: ["/((?!login|forgot-password|set-password|signup|welcome|graphql|api/|_next/|favicon\\.ico|.*\\.[a-z0-9]+$).*)"],
 };

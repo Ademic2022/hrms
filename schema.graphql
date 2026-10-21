@@ -823,6 +823,17 @@ type Mutation {
   newRecoveryCodes(code: String!): RecoveryCodesPayload!
   updateCompanySettings(input: CompanySettingsInput!): CompanySettingsPayload!
   removeCompanyLogo: Boolean!
+  signUp(input: SignUpInput!): SignUpPayload!
+
+  """
+  Email the sign-in address of each company this email belongs to. Always answers true.
+  """
+  emailMyCompanies(email: String!): Boolean!
+
+  """
+  Exchange a sign-up hand-off token for a session on this company's address.
+  """
+  redeemWelcome(token: String!): LoginPayload!
 }
 
 input MyDetailsInput {
@@ -1015,6 +1026,11 @@ type Query {
   reportCatalog: [ReportInfo!]!
   runReport(key: String!, params: ReportParams = null): ReportResult!
   companySettings: CompanySettings!
+
+  """
+  Whether a web address is free, and the cleaned form of it. Null problem means free.
+  """
+  slugCheck(slug: String!): String
 }
 
 type RecoveryCodesPayload {
@@ -1201,6 +1217,23 @@ input SetPasswordInput {
 
 type SetPasswordPayload {
   ok: Boolean!
+  errors: [FieldError!]!
+}
+
+input SignUpInput {
+  company: String!
+  slug: String!
+  firstName: String!
+  lastName: String! = ""
+  email: String!
+  password: String!
+  country: String! = "NG"
+  currency: String! = "NGN"
+}
+
+type SignUpPayload {
+  """Where to go next: the company's own address, signing the owner in."""
+  url: String
   errors: [FieldError!]!
 }
 
