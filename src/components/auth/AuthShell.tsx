@@ -38,9 +38,14 @@ export function AuthShell({ title, subtitle, children, footer }: { title: string
         <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-40 h-[28rem] w-[28rem] rounded-full border-[56px] border-current opacity-[0.06]" />
         <div className={`relative flex h-full flex-col px-6 py-6 sm:px-10 lg:px-12 lg:py-12 ${loading ? "opacity-0" : "opacity-100"} transition-opacity duration-300`}>
           <div className="flex items-center gap-4">
-            <span className="grid h-12 w-12 place-items-center rounded-xl bg-white/15 font-display text-lg font-semibold ring-1 ring-inset ring-white/25">
-              {tenant ? initials(tenant.name) : "HR"}
-            </span>
+            {tenant?.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={tenant.logoUrl} alt="" className="h-12 w-12 rounded-xl bg-white object-contain p-1.5" />
+            ) : (
+              <span className="grid h-12 w-12 place-items-center rounded-xl bg-white/15 font-display text-lg font-semibold ring-1 ring-inset ring-white/25">
+                {tenant ? initials(tenant.name) : "HR"}
+              </span>
+            )}
             <div className="min-w-0 truncate font-display text-lg font-semibold leading-tight sm:text-xl">{tenant?.name ?? "HRMS"}</div>
           </div>
 

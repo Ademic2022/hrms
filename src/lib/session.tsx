@@ -15,8 +15,9 @@ export const MeDocument = graphql(`
       roles
       user { id email fullName }
       employee { id fullName jobTitle { name } }
+      mfaEnabled mfaSetupRequired recoveryCodesLeft
     }
-    tenant { name slug primaryColor country currency }
+    tenant { name slug primaryColor country currency logoUrl }
   }
 `);
 

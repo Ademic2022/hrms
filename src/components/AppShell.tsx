@@ -10,9 +10,9 @@ import { initials } from "@/lib/format";
 import { PERMS } from "@/lib/permissions";
 import { useSession, type Tenant } from "@/lib/session";
 
-import { IconBuilding, IconCalendarCheck, IconCheck, IconClose, IconHome, IconLogout, IconMenu, IconPencilGrid, IconSitemap, IconUser, IconUsers } from "./icons";
+import { IconBuilding, IconCalendarCheck, IconChart, IconCheck, IconClose, IconFile, IconHome, IconLogout, IconMenu, IconPencilGrid, IconSettings, IconShield, IconSitemap, IconUser, IconUsers } from "./icons";
 import { NotificationBell } from "./Notifications";
-import { IconButton, Loading, cx } from "./ui";
+import { IconButton, Loading, Notice, cx } from "./ui";
 
 const LogoutDocument = graphql(`
   mutation Logout {
@@ -23,6 +23,12 @@ const LogoutDocument = graphql(`
 const WaitingDocument = graphql(`
   query WaitingApprovals {
     leaveApprovals { id }
+  }
+`);
+
+const ChangesWaitingDocument = graphql(`
+  query ChangesWaiting {
+    pendingChangeRequests { id }
   }
 `);
 
@@ -44,6 +50,10 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 function Crest({ tenant }: { tenant: Tenant | null }) {
+  if (tenant?.logoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={tenant.logoUrl} alt="" className="h-9 w-9 flex-none rounded-lg border border-line bg-white object-contain p-1" />;
+  }
   const label = tenant ? initials(tenant.name.replace(/\b(ltd|limited|plc|inc|the)\b\.?/gi, "")) || tenant.name[0] : "";
   return (
     <span className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-brand font-display text-[15px] font-semibold text-white">
@@ -61,9 +71,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const drawerOpen = openOn === pathname;
   // Refreshed on each page change, so the badge drops as requests are decided.
   const [{ data: waiting }, recount] = useQuery({ query: WaitingDocument, pause: !me });
+  const reviewsChanges = Boolean(me?.permissions.includes(PERMS.employeesManage));
+  const [{ data: changes }, recountChanges] = useQuery({ query: ChangesWaitingDocument, pause: !reviewsChanges });
   useEffect(() => {
     if (me) recount({ requestPolicy: "network-only" });
-  }, [pathname, me, recount]);
+    if (reviewsChanges) recountChanges({ requestPolicy: "network-only" });
+  }, [pathname, me, recount, reviewsChanges, recountChanges]);
 
   useEffect(() => {
     if (!loading && !me) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
@@ -96,6 +109,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       items: [
         { href: "/directory", label: "Directory", show: true, icon: IconBuilding },
         { href: "/employees", label: "Employees", show: can(PERMS.employeesView), icon: IconUsers },
+        {
+          href: "/employees/requests", label: "Change requests", show: reviewsChanges, icon: IconCheck,
+          count: changes?.pendingChangeRequests.length ?? 0,
+        },
+        {
+          href: "/reports", label: "Reports", icon: IconChart,
+          show: can(PERMS.employeesView, PERMS.leaveManage, PERMS.compensationView),
+        },
       ],
     },
     {
@@ -114,6 +135,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       items: [
         { href: "/organization", label: "Organization", show: can(PERMS.orgManage), icon: IconSitemap },
         { href: "/leave/settings", label: "Leave setup", show: can(PERMS.leaveManage), icon: IconPencilGrid },
+        { href: "/documents", label: "Documents", show: can(PERMS.documentsManage), icon: IconFile },
+        { href: "/settings/users", label: "Users and access", show: can(PERMS.usersManage), icon: IconShield },
+        { href: "/settings/company", label: "Company settings", show: can(PERMS.tenantManage), icon: IconSettings },
       ],
     },
   ]
@@ -148,7 +172,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               {s.items.map((item) => {
                 // "My profile" is one employee page; it should not also light up when viewing a colleague.
                 // Exact match for pages that have siblings below them (/leave vs /leave/approvals).
-                const exact = item.href === profileHref || item.href === "/leave";
+                const exact = item.href === profileHref || item.href === "/leave" || item.href === "/employees";
                 const active = exact ? pathname === item.href : pathname.startsWith(item.href) && pathname !== profileHref;
                 const Icon = item.icon;
                 return (
@@ -177,11 +201,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       </nav>
       <div className="border-t border-line p-3">
         <div className="flex items-center gap-3 rounded-lg px-2 py-1.5">
-          <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-subtle text-xs font-semibold text-ink ring-1 ring-line">{initials(me.user.fullName)}</span>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-ink">{me.user.fullName}</div>
-            <div className="truncate text-xs text-muted">{roleLabel}</div>
-          </div>
+          <Link href="/account" title="Your account and security" className="-m-1 flex min-w-0 flex-1 items-center gap-3 rounded-md p-1 transition hover:bg-subtle">
+            <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-subtle text-xs font-semibold text-ink ring-1 ring-line">{initials(me.user.fullName)}</span>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium text-ink">{me.user.fullName}</div>
+              <div className="truncate text-xs text-muted">{roleLabel}</div>
+            </div>
+          </Link>
           <IconButton label="Sign out" onClick={signOut}>
             <IconLogout size={17} />
           </IconButton>
@@ -219,7 +245,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NotificationBell align="right" />
         </header>
 
-        <main id="main" className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-8 sm:py-8">{children}</main>
+        <main id="main" className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-8 sm:py-8">
+          {me.mfaSetupRequired && pathname !== "/account" && (
+            <Notice tone="warning" title="Set up two-step sign-in to use your admin access">
+              {tenant?.name} requires it for your role. Until then you can use the app as an employee.{" "}
+              <Link href="/account" className="font-semibold underline-offset-2 hover:underline">Set it up now</Link>
+            </Notice>
+          )}
+          {children}
+        </main>
       </div>
     </div>
   );

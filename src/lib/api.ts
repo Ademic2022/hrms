@@ -45,3 +45,18 @@ export function errorMessage(error: CombinedError | undefined): string | undefin
   if (error.networkError) return "Could not reach the server. Check your connection and try again.";
   return error.graphQLErrors[0]?.message ?? "Something went wrong.";
 }
+
+/**
+ * POST a multipart form (file uploads) to a Django endpoint. Answers the JSON body with
+ * `errors` filled in for any failure, including a lost connection.
+ */
+export async function postForm<T>(path: string, form: FormData): Promise<T & { errors?: { field: string | null; message: string }[] }> {
+  try {
+    const response = await apiFetch(path, { method: "POST", body: form });
+    return await response.json();
+  } catch {
+    return { errors: [{ field: null, message: "Could not reach the server. Check your connection and try again." }] } as T & {
+      errors: { field: string | null; message: string }[];
+    };
+  }
+}

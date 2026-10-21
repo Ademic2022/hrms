@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDeferredValue, useState } from "react";
 import { useQuery } from "urql";
 
-import { IconPlus, IconUsers } from "@/components/icons";
+import { IconDownload, IconPlus, IconUpload, IconUsers } from "@/components/icons";
 import {
   Avatar, ButtonLink, Card, CursorPager, Empty, ErrorNote, Loading, PageHeader, SearchInput, Select, StatusBadge, Table, TD, TH,
 } from "@/components/ui";
@@ -73,13 +73,33 @@ export default function EmployeesPage() {
   const employees = data?.employees;
 
   const filtered = Boolean(query || status || departmentId);
+  // The export follows the filters on screen.
+  const exportUrl = (format: "xlsx" | "csv") => {
+    const params = new URLSearchParams({ format });
+    if (status) params.set("status", status.toLowerCase());
+    if (departmentId) params.set("department", departmentId);
+    if (query) params.set("search", query);
+    return `/api/employees/export/?${params}`;
+  };
 
   return (
     <>
       <PageHeader
         title="Employees"
         subtitle={employees ? `${employees.totalCount.toLocaleString()} ${employees.totalCount === 1 ? "person" : "people"}` : undefined}
-        actions={can(PERMS.employeesManage) ? <ButtonLink href="/employees/new" icon={<IconPlus size={16} />}>Add employee</ButtonLink> : null}
+        actions={
+          <>
+            <ButtonLink href={exportUrl("xlsx")} download variant="secondary" icon={<IconDownload size={16} />}>Export</ButtonLink>
+            <ButtonLink href={exportUrl("csv")} download variant="ghost">CSV</ButtonLink>
+            {can(PERMS.employeesManage) && (
+              <>
+                <ButtonLink href="/employees/fields" variant="secondary">Fields</ButtonLink>
+                <ButtonLink href="/employees/import" variant="secondary" icon={<IconUpload size={16} />}>Import</ButtonLink>
+                <ButtonLink href="/employees/new" icon={<IconPlus size={16} />}>Add employee</ButtonLink>
+              </>
+            )}
+          </>
+        }
       />
       <Card flush>
         <div className="grid gap-3 border-b border-line p-4 sm:grid-cols-[1fr_200px_200px]">

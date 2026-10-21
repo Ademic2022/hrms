@@ -1,3 +1,8 @@
+type AccountPayload {
+  ok: Boolean!
+  errors: [FieldError!]!
+}
+
 input AdjustLeaveInput {
   employeeId: ID!
   leaveTypeId: ID!
@@ -40,11 +45,74 @@ input ChangeJobInput {
   employmentType: EmploymentType
 }
 
+type ChangeLine {
+  field: String!
+  label: String!
+  current: String!
+  requested: String!
+}
+
+type ChangeRequest {
+  id: ID!
+  employeeId: ID!
+  employeeName: String!
+  status: ChangeRequestStatus!
+  lines: [ChangeLine!]!
+  note: String!
+  createdAt: DateTime!
+  decidedAt: DateTime
+  decidedBy: String
+  canDecide: Boolean!
+}
+
+type ChangeRequestPayload {
+  request: ChangeRequest
+  errors: [FieldError!]!
+}
+
+enum ChangeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
 input ChangeStatusInput {
   id: ID!
   status: EmployeeStatus!
   effectiveDate: Date = null
   reason: String = null
+}
+
+type CompanySettings {
+  name: String!
+  country: String!
+  currency: String!
+  timezone: String!
+  primaryColor: String!
+  logoUrl: String
+  requireAdminMfa: Boolean!
+  sessionTimeoutMinutes: Int!
+  ipAllowlist: [String!]!
+
+  """The address this request came from, to put on the allow-list."""
+  yourIp: String!
+}
+
+input CompanySettingsInput {
+  name: String
+  country: String
+  currency: String
+  timezone: String
+  primaryColor: String
+  requireAdminMfa: Boolean
+  sessionTimeoutMinutes: Int
+  ipAllowlist: [String!]
+}
+
+type CompanySettingsPayload {
+  settings: CompanySettings
+  errors: [FieldError!]!
 }
 
 type Compensation {
@@ -60,6 +128,48 @@ input CompensationInput {
   amount: Decimal!
   currency: String = null
   frequency: PayFrequency! = MONTHLY
+}
+
+input CorrectInviteInput {
+  id: ID!
+  email: String!
+  firstName: String!
+  lastName: String! = ""
+}
+
+type CustomField {
+  id: ID!
+  name: String!
+  key: String!
+  fieldType: CustomFieldType!
+  choices: [String!]!
+  helpText: String!
+  hrOnly: Boolean!
+  position: Int!
+  isActive: Boolean!
+}
+
+type CustomFieldPayload {
+  field: CustomField
+  errors: [FieldError!]!
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  DATE
+  CHOICE
+  YES_NO
+}
+
+type CustomValue {
+  field: CustomField!
+  value: JSON
+}
+
+type CustomValuesPayload {
+  ok: Boolean!
+  errors: [FieldError!]!
 }
 
 """Date (isoformat)"""
@@ -129,6 +239,54 @@ type DirectoryEntryConnection {
   totalCount: Int!
 }
 
+type DocumentCategory {
+  id: ID!
+  name: String!
+  employeeCanView: Boolean!
+  managerCanView: Boolean!
+  requiresExpiry: Boolean!
+  isActive: Boolean!
+}
+
+type DocumentCategoryPayload {
+  category: DocumentCategory
+  errors: [FieldError!]!
+}
+
+type DocumentOwner {
+  id: ID!
+  fullName: String!
+}
+
+type DocumentPayload {
+  document: EmployeeDocument
+  errors: [FieldError!]!
+}
+
+type EmergencyContact {
+  id: ID!
+  name: String!
+  relationship: String!
+  phone: String!
+  email: String!
+  isPrimary: Boolean!
+}
+
+input EmergencyContactInput {
+  id: ID = null
+  employeeId: ID!
+  name: String!
+  relationship: String = ""
+  phone: String!
+  email: String = ""
+  isPrimary: Boolean! = false
+}
+
+type EmergencyContactPayload {
+  contact: EmergencyContact
+  errors: [FieldError!]!
+}
+
 type Employee {
   id: ID!
   employeeNumber: String!
@@ -138,9 +296,6 @@ type Employee {
   preferredName: String!
   fullName: String!
   workEmail: String!
-  personalEmail: String!
-  phone: String!
-  dateOfBirth: Date
   status: EmployeeStatus!
   hireDate: Date!
   probationEndDate: Date
@@ -155,6 +310,9 @@ type Employee {
   grade: Grade
   manager: Employee
   directReports: [Employee!]!
+  personalEmail: String!
+  phone: String!
+  dateOfBirth: Date
   gender: Gender
   employmentHistory: [EmploymentRecord!]!
 
@@ -163,12 +321,37 @@ type Employee {
 
   """Pay history, newest first. Empty unless you may see pay."""
   compensationHistory: [Compensation!]!
+
+  """Empty unless you are the employee or may view employee records."""
+  emergencyContacts: [EmergencyContact!]!
+
+  """
+  Bank and ID details with the numbers masked. Null unless you may see them.
+  """
+  privateDetails: PrivateDetails
+
+  """Custom field values you may see, in field order, including empty ones."""
+  customValues: [CustomValue!]!
 }
 
 type EmployeeConnection {
   nodes: [Employee!]!
   pageInfo: PageInfo!
   totalCount: Int!
+}
+
+type EmployeeDocument {
+  id: ID!
+  employee: DocumentOwner!
+  category: DocumentCategory!
+  title: String!
+  originalName: String!
+  contentType: String!
+  size: Int!
+  expiresOn: Date
+  notes: String!
+  uploadedBy: String
+  createdAt: DateTime!
 }
 
 input EmployeeFilter {
@@ -270,6 +453,20 @@ input HireEmployeeInput {
   managerId: ID = null
   compensation: CompensationInput = null
 }
+
+input InviteMemberInput {
+  email: String!
+  firstName: String!
+  lastName: String!
+  roleCodes: [String!]!
+  employeeId: ID = null
+  scope: ScopeInput = null
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf).
+"""
+scalar JSON @specifiedBy(url: "https://ecma-international.org/wp-content/uploads/ECMA-404_2nd_edition_december_2017.pdf")
 
 type JobChangePayload {
   employee: Employee
@@ -491,6 +688,9 @@ input LoginInput {
 
 type LoginPayload {
   me: Me
+
+  """The password was right; now send verifyMfa a code."""
+  mfaRequired: Boolean!
   errors: [FieldError!]!
 }
 
@@ -501,10 +701,52 @@ type Me {
 
   """Your own employee record, if you have one."""
   employee: Employee
+  mfaEnabled: Boolean!
+
+  """
+  Your role needs two-step sign-in here and you have not set it up: admin permissions wait until you do.
+  """
+  mfaSetupRequired: Boolean!
+  recoveryCodesLeft: Int!
+}
+
+type Member {
+  id: ID!
+  email: String!
+  firstName: String!
+  lastName: String!
+  fullName: String!
+  isActive: Boolean!
+
+  """Invited but has not set a password yet."""
+  invitePending: Boolean!
+  lastLogin: DateTime
+  roles: [Role!]!
+  employee: NamedRef
+  legalEntities: [NamedRef!]!
+  locations: [NamedRef!]!
+  departments: [NamedRef!]!
+}
+
+type MemberPayload {
+  member: Member
+  errors: [FieldError!]!
+}
+
+type MfaSetup {
+  """For typing into the app if the QR code cannot be scanned."""
+  secret: String!
+  uri: String!
+  qrSvg: String!
 }
 
 type Mutation {
   login(input: LoginInput!): LoginPayload!
+
+  """
+  The second step of signing in: a code from the authenticator app, or a recovery code.
+  """
+  verifyMfa(code: String!): LoginPayload!
   logout: Boolean!
   saveLegalEntity(input: SaveLegalEntityInput!): LegalEntityPayload!
   saveLocation(input: SaveLocationInput!): LocationPayload!
@@ -532,6 +774,84 @@ type Mutation {
   Mark some of your notifications read, or all of them when ids is null. Returns how many changed.
   """
   markNotificationsRead(ids: [ID!] = null): Int!
+  saveDocumentCategory(input: SaveDocumentCategoryInput!): DocumentCategoryPayload!
+  updateDocument(input: UpdateDocumentInput!): DocumentPayload!
+  removeDocument(id: ID!): Boolean!
+
+  """A ten-minute download link. Each one is recorded in the audit log."""
+  documentDownloadUrl(id: ID!): String!
+  saveEmergencyContact(input: EmergencyContactInput!): EmergencyContactPayload!
+  deleteEmergencyContact(id: ID!): Boolean!
+  savePrivateDetails(input: PrivateDetailsInput!): PrivateDetailsPayload!
+
+  """
+  The bank and ID numbers in full. Each reveal is written to the audit log.
+  """
+  revealPrivateDetails(employeeId: ID!): PrivateDetails!
+  saveCustomField(input: SaveCustomFieldInput!): CustomFieldPayload!
+
+  """Set custom field values by key. Null or empty clears a value."""
+  setEmployeeCustomValues(employeeId: ID!, values: JSON!): CustomValuesPayload!
+  inviteMember(input: InviteMemberInput!): MemberPayload!
+  updateMember(input: UpdateMemberInput!): MemberPayload!
+  resendInvite(id: ID!): Boolean!
+
+  """
+  Fix the email or name on an invitation that has not been accepted, and send it again.
+  """
+  correctInvite(input: CorrectInviteInput!): MemberPayload!
+
+  """Withdraw an invitation that has not been accepted."""
+  cancelInvite(id: ID!): MemberPayload!
+
+  """
+  Email a set-password link if the address belongs to a member. Always answers true.
+  """
+  requestPasswordReset(email: String!): Boolean!
+  setPassword(input: SetPasswordInput!): SetPasswordPayload!
+  updateMyDetails(input: MyDetailsInput!): MyDetailsPayload!
+  decideChangeRequest(id: ID!, approve: Boolean!, note: String = null): ChangeRequestPayload!
+  cancelChangeRequest(id: ID!): ChangeRequestPayload!
+  changePassword(current: String!, new: String!): AccountPayload!
+
+  """
+  Start setting up two-step sign-in: a new secret to scan, kept until confirmed.
+  """
+  startMfaSetup: MfaSetup!
+  confirmMfaSetup(code: String!): RecoveryCodesPayload!
+  disableMfa(password: String!): AccountPayload!
+  newRecoveryCodes(code: String!): RecoveryCodesPayload!
+  updateCompanySettings(input: CompanySettingsInput!): CompanySettingsPayload!
+  removeCompanyLogo: Boolean!
+}
+
+input MyDetailsInput {
+  preferredName: String
+  personalEmail: String
+  phone: String
+  firstName: String
+  middleName: String
+  lastName: String
+  bankName: String
+  bankAccountName: String
+  bankAccountNumber: String
+  nationalId: String
+  taxId: String
+  pensionId: String
+}
+
+type MyDetailsPayload {
+  """Fields changed straight away."""
+  applied: [String!]!
+
+  """Sent to HR for approval."""
+  request: ChangeRequest
+  errors: [FieldError!]!
+}
+
+type NamedRef {
+  id: ID!
+  name: String!
 }
 
 type Notification {
@@ -568,6 +888,38 @@ type PeopleStats {
   onProbation: Int!
   awayToday: Int!
   pendingLeaveRequests: Int!
+}
+
+type PermissionInfo {
+  code: String!
+  description: String!
+}
+
+type PrivateDetails {
+  bankName: String!
+  bankAccountName: String!
+  bankAccountNumber: String!
+  nationalId: String!
+  taxId: String!
+  pensionId: String!
+
+  """True when the numbers show only their last four digits."""
+  masked: Boolean!
+}
+
+input PrivateDetailsInput {
+  employeeId: ID!
+  bankName: String
+  bankAccountName: String
+  bankAccountNumber: String
+  nationalId: String
+  taxId: String
+  pensionId: String
+}
+
+type PrivateDetailsPayload {
+  details: PrivateDetails
+  errors: [FieldError!]!
 }
 
 type PublicHoliday {
@@ -634,6 +986,80 @@ type Query {
 
   """Headline numbers for the people team. Needs employees.view."""
   peopleStats: PeopleStats!
+  documentCategories(includeInactive: Boolean! = false): [DocumentCategory!]!
+
+  """
+  An employee's documents that you may see: your own, your team's or any for HR.
+  """
+  employeeDocuments(employeeId: ID!): [EmployeeDocument!]!
+
+  """Documents expired or expiring within the given days. HR only."""
+  expiringDocuments(withinDays: Int! = 30): [EmployeeDocument!]!
+
+  """The tenant's custom fields. HR-only fields need employees.manage."""
+  customFields(includeInactive: Boolean! = false): [CustomField!]!
+  members: [Member!]!
+  roles: [Role!]!
+  permissionCatalog: [PermissionInfo!]!
+
+  """Whether a set-password link is still good, and whose it is."""
+  passwordLink(uid: String!, token: String!): String
+
+  """Your own change requests, newest first."""
+  myChangeRequests: [ChangeRequest!]!
+
+  """Changes waiting for HR, within your scope."""
+  pendingChangeRequests: [ChangeRequest!]!
+
+  """The reports you may run."""
+  reportCatalog: [ReportInfo!]!
+  runReport(key: String!, params: ReportParams = null): ReportResult!
+  companySettings: CompanySettings!
+}
+
+type RecoveryCodesPayload {
+  """Shown once. Each works one time."""
+  codes: [String!]!
+  errors: [FieldError!]!
+}
+
+type ReportColumn {
+  key: String!
+  label: String!
+  kind: String!
+}
+
+type ReportFigure {
+  label: String!
+  value: String!
+}
+
+type ReportInfo {
+  key: String!
+  title: String!
+  description: String!
+  usesRange: Boolean!
+  groupings: [String!]!
+}
+
+input ReportParams {
+  start: Date = null
+  end: Date = null
+  legalEntityId: ID = null
+  locationId: ID = null
+  departmentId: ID = null
+  groupBy: String = null
+}
+
+type ReportResult {
+  title: String!
+  columns: [ReportColumn!]!
+  rows: JSON!
+  summary: [ReportFigure!]!
+  chart: String!
+  note: String!
+  start: Date!
+  end: Date!
 }
 
 input RequestLeaveInput {
@@ -647,6 +1073,31 @@ input RequestLeaveInput {
   employeeId: ID = null
 }
 
+type Role {
+  id: ID!
+  code: String!
+  name: String!
+  permissions: [String!]!
+  scope: RoleScope!
+  isSystem: Boolean!
+}
+
+enum RoleScope {
+  ALL
+  TEAM
+}
+
+input SaveCustomFieldInput {
+  id: ID = null
+  name: String
+  fieldType: CustomFieldType
+  choices: [String!]
+  helpText: String
+  hrOnly: Boolean
+  position: Int
+  isActive: Boolean
+}
+
 input SaveDepartmentInput {
   id: ID = null
   legalEntityId: ID
@@ -654,6 +1105,15 @@ input SaveDepartmentInput {
   headId: ID
   name: String
   code: String
+  isActive: Boolean
+}
+
+input SaveDocumentCategoryInput {
+  id: ID = null
+  name: String
+  employeeCanView: Boolean
+  managerCanView: Boolean
+  requiresExpiry: Boolean
   isActive: Boolean
 }
 
@@ -727,12 +1187,30 @@ input SavePublicHolidayInput {
   locationId: ID
 }
 
+input ScopeInput {
+  legalEntityIds: [ID!]! = []
+  locationIds: [ID!]! = []
+  departmentIds: [ID!]! = []
+}
+
+input SetPasswordInput {
+  uid: String!
+  token: String!
+  password: String!
+}
+
+type SetPasswordPayload {
+  ok: Boolean!
+  errors: [FieldError!]!
+}
+
 type TenantPublic {
   name: String!
   slug: String!
   primaryColor: String!
   country: String!
   currency: String!
+  logoUrl: String
 }
 
 type TenureStep {
@@ -743,6 +1221,14 @@ type TenureStep {
 input TenureStepInput {
   years: Int!
   extraDays: Decimal!
+}
+
+input UpdateDocumentInput {
+  id: ID!
+  title: String
+  categoryId: ID
+  expiresOn: Date
+  notes: String
 }
 
 input UpdateEmployeeInput {
@@ -756,6 +1242,14 @@ input UpdateEmployeeInput {
   phone: String
   dateOfBirth: Date
   gender: Gender
+}
+
+input UpdateMemberInput {
+  id: ID!
+  roleCodes: [String!] = null
+  isActive: Boolean = null
+  employeeId: ID
+  scope: ScopeInput = null
 }
 
 type User {

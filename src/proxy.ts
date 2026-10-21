@@ -15,5 +15,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Everything except sign-in, API paths forwarded to Django, and static files.
-  matcher: ["/((?!login|graphql|api/|_next/|favicon\\.ico|.*\\.[a-z0-9]+$).*)"],
+  matcher: ["/((?!login|forgot-password|set-password|graphql|api/|_next/|favicon\\.ico|.*\\.[a-z0-9]+$).*)"],
 };

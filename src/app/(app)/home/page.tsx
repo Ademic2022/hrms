@@ -30,6 +30,12 @@ const StatsDocument = graphql(`
   }
 `);
 
+const ExpiringDocument = graphql(`
+  query HomeExpiring {
+    expiringDocuments(withinDays: 30) { id }
+  }
+`);
+
 const TeamDocument = graphql(`
   query HomeTeam($managerId: ID!) {
     directory(managerId: $managerId, first: 100) { nodes { id fullName jobTitle } }
@@ -58,6 +64,7 @@ export default function HomePage() {
   const [{ data }] = useQuery({ query: HomeDocument, variables: { start: now, end: weekEnd, year, next: year + 1 } });
   const [{ data: leaveData }, reloadLeave] = useQuery({ query: EmployeeLeaveDocument, variables: {}, pause: !employeeId });
   const [{ data: stats }] = useQuery({ query: StatsDocument, pause: !seesStats });
+  const [{ data: expiringDocs }] = useQuery({ query: ExpiringDocument, pause: !can(PERMS.documentsManage) });
   const [{ data: team }] = useQuery({ query: TeamDocument, variables: { managerId: employeeId ?? "" }, pause: !employeeId });
   const [requesting, setRequesting] = useState(false);
   const [saved, setSaved] = useState<string>();
@@ -83,6 +90,11 @@ export default function HomePage() {
         ) : null}
       />
       {saved && <Notice tone="success">{saved}</Notice>}
+      {expiringDocs && expiringDocs.expiringDocuments.length > 0 && (
+        <Notice tone="warning" title={`${expiringDocs.expiringDocuments.length} ${expiringDocs.expiringDocuments.length === 1 ? "document has" : "documents have"} expired or expire within 30 days`}>
+          <Link href="/documents" className="font-semibold underline-offset-2 hover:underline">See which ones</Link>
+        </Notice>
+      )}
 
       {stats && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

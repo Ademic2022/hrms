@@ -8,6 +8,9 @@ import { useMutation, useQuery } from "urql";
 import {
   ChangeJobDialog, ChangePayDialog, ChangeStatusDialog, EditPersonalDialog, canChangeStatus,
 } from "@/components/employees/EmployeeDialogs";
+import { DocumentsCard } from "@/components/documents/Documents";
+import { CustomFieldsCard, EmergencyContactsCard, PrivateDetailsCard } from "@/components/employees/RecordCards";
+import { MyChangeNotice, MyDetailsDialog } from "@/components/employees/SelfService";
 import { AdjustBalanceDialog, EmployeeLeaveDocument, RequestsTable, TypeDot } from "@/components/leave/Leave";
 import { ActionDialog, Avatar, Badge, Button, Card, ErrorNote, Loading, Notice, PageHeader, RowLink, StatusBadge } from "@/components/ui";
 import { graphql } from "@/gql";
@@ -26,7 +29,7 @@ const ArchiveDocument = graphql(`
   }
 `);
 
-type Open = "personal" | "job" | "pay" | "status" | "archive" | "adjust" | null;
+type Open = "personal" | "job" | "pay" | "status" | "archive" | "adjust" | "mine" | null;
 
 const EmployeeDocument = graphql(`
   query Employee($id: ID!) {
@@ -57,6 +60,9 @@ const EmployeeDocument = graphql(`
       grade { id name }
       manager { id fullName }
       directReports { id fullName jobTitle { name } }
+      emergencyContacts { id name relationship phone email isPrimary }
+      privateDetails { bankName bankAccountName bankAccountNumber nationalId taxId pensionId masked }
+      customValues { value field { id key name fieldType choices helpText hrOnly } }
       compensation { amount currency frequency effectiveDate }
       compensationHistory { id amount currency frequency effectiveDate reason }
       employmentHistory {
@@ -121,16 +127,19 @@ export default function EmployeePage() {
             <span className="tabular-nums">{e.employeeNumber}</span>
           </>
         }
-        actions={manage ? (
+        actions={manage || self ? (
           <>
-            {!left && <Button variant="secondary" onClick={() => setOpen("job")}>Change job</Button>}
-            {canChangeStatus(e.status) && <Button variant="secondary" onClick={() => setOpen("status")}>Change status</Button>}
-            {left && !e.archivedAt && <Button variant="secondary" onClick={() => setOpen("archive")}>Archive</Button>}
+            {self && <Button variant="secondary" onClick={() => setOpen("mine")}>Update my details</Button>}
+            {manage && !left && <Button variant="secondary" onClick={() => setOpen("job")}>Change job</Button>}
+            {manage && canChangeStatus(e.status) && <Button variant="secondary" onClick={() => setOpen("status")}>Change status</Button>}
+            {manage && left && !e.archivedAt && <Button variant="secondary" onClick={() => setOpen("archive")}>Archive</Button>}
           </>
         ) : <Avatar name={e.fullName} size="lg" />}
       />
       {e.archivedAt && <Notice tone="info" title="Archived">This record is hidden from the employee list but kept for reporting and audit.</Notice>}
       {saved && <Notice tone="success">{saved}</Notice>}
+      {self && <MyChangeNotice key={saved ?? ""} onChanged={() => done("Change withdrawn.")} />}
+      {open === "mine" && <MyDetailsDialog employee={e} onClose={() => setOpen(null)} onSaved={(m) => done(m)} />}
 
       {open === "personal" && <EditPersonalDialog {...dialogProps} onSaved={() => done("Personal details saved.")} />}
       {open === "job" && <ChangeJobDialog {...dialogProps} onSaved={() => done("Job change recorded.")} />}
@@ -181,6 +190,8 @@ export default function EmployeePage() {
             </dl>
           </Card>
 
+          <CustomFieldsCard employee={e} canEdit={manage} onChanged={() => done("Details saved.")} />
+
           <Card title="Employment history" description="Every hire, promotion, transfer and change, newest first.">
             <ol className="relative space-y-5 before:absolute before:inset-y-1 before:left-[5px] before:w-px before:bg-line">
               {e.employmentHistory.map((h) => (
@@ -199,6 +210,8 @@ export default function EmployeePage() {
               ))}
             </ol>
           </Card>
+
+          <DocumentsCard employeeId={e.id} employeeName={e.fullName} canManage={can(PERMS.documentsManage)} />
 
           {leave && leave.requests.length > 0 && !self ? (
             <Card title="Leave requests" flush>
@@ -248,6 +261,10 @@ export default function EmployeePage() {
               )}
             </div>
           ) : null}
+
+          <PrivateDetailsCard employee={e} canEdit={manage} onChanged={() => done("Bank and ID details saved.")} />
+
+          <EmergencyContactsCard employee={e} canEdit={manage || self} onChanged={() => done("Emergency contacts saved.")} />
 
           {leave && (leave.balances.length > 0 || can(PERMS.leaveManage)) ? (
             <Card title="Leave" flush
