@@ -1,0 +1,352 @@
+"use client";
+
+import { useState, type FormEvent, type ReactNode } from "react";
+import { useClient, useQuery } from "urql";
+
+import { IconPlus, IconSitemap } from "@/components/icons";
+import {
+  Badge, Button, Card, Checkbox, Dialog, Empty, ErrorNote, Field, Input, Loading, Notice, PageHeader, Select, Table, Tabs, TD, TH, Textarea,
+} from "@/components/ui";
+import { graphql } from "@/gql";
+import type { OrganizationQuery } from "@/gql/graphql";
+import { errorMessage } from "@/lib/api";
+import { reportErrors } from "@/lib/forms";
+import { PERMS } from "@/lib/permissions";
+import { useSession, type Tenant } from "@/lib/session";
+
+const OrganizationDocument = graphql(`
+  query Organization {
+    legalEntities { id name registrationNumber country currency isActive }
+    locations { id name address city country timezone isActive legalEntity { id name } }
+    departments { id name code isActive legalEntity { id name } parent { id name } head { id fullName } }
+    jobTitles { id name isActive }
+    grades { id name rank isActive }
+    employees(filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }, first: 100) { nodes { id fullName } }
+  }
+`);
+
+const SaveLegalEntityDocument = graphql(`
+  mutation SaveLegalEntity($input: SaveLegalEntityInput!) {
+    saveLegalEntity(input: $input) { legalEntity { id } errors { field message } }
+  }
+`);
+const SaveLocationDocument = graphql(`
+  mutation SaveLocation($input: SaveLocationInput!) {
+    saveLocation(input: $input) { location { id } errors { field message } }
+  }
+`);
+const SaveDepartmentDocument = graphql(`
+  mutation SaveDepartment($input: SaveDepartmentInput!) {
+    saveDepartment(input: $input) { department { id } errors { field message } }
+  }
+`);
+const SaveJobTitleDocument = graphql(`
+  mutation SaveJobTitle($input: SaveJobTitleInput!) {
+    saveJobTitle(input: $input) { jobTitle { id } errors { field message } }
+  }
+`);
+const SaveGradeDocument = graphql(`
+  mutation SaveGrade($input: SaveGradeInput!) {
+    saveGrade(input: $input) { grade { id } errors { field message } }
+  }
+`);
+
+type Kind = "legalEntities" | "departments" | "locations" | "jobTitles" | "grades";
+type Values = Record<string, string | boolean>;
+type Option = { id: string; name: string };
+
+interface FieldDef {
+  name: string;
+  label: string;
+  type?: "text" | "number" | "select" | "textarea";
+  required?: boolean;
+  hint?: string;
+  placeholder?: string;
+  /** Country and currency codes are stored upper-case. */
+  upper?: boolean;
+  maxLength?: number;
+  options?: (data: OrganizationQuery, values: Values, editingId?: string) => Option[];
+  empty?: string;
+  wide?: boolean;
+}
+
+const entityOptions = (d: OrganizationQuery) => d.legalEntities.filter((e) => e.isActive);
+
+const KINDS: Record<Kind, { label: string; singular: string; intro: string; fields: FieldDef[] }> = {
+  legalEntities: {
+    label: "Legal entities",
+    singular: "legal entity",
+    intro: "Registered companies in your group. Payroll, tax and bank files are produced per entity.",
+    fields: [
+      { name: "name", label: "Name", required: true, wide: true },
+      { name: "registrationNumber", label: "Registration number" },
+      { name: "country", label: "Country code", required: true, upper: true, maxLength: 2, placeholder: "NG", hint: "Two letters, ISO 3166." },
+      { name: "currency", label: "Currency", required: true, upper: true, maxLength: 3, placeholder: "NGN", hint: "Three letters, ISO 4217." },
+    ],
+  },
+  departments: {
+    label: "Departments",
+    singular: "department",
+    intro: "The department tree for each legal entity. A department can sit under another one.",
+    fields: [
+      { name: "name", label: "Name", required: true },
+      { name: "code", label: "Code", maxLength: 20, placeholder: "ENG" },
+      { name: "legalEntityId", label: "Legal entity", type: "select", required: true, options: entityOptions, empty: "Choose…" },
+      {
+        name: "parentId", label: "Sits under", type: "select", empty: "Top level",
+        options: (d, v, editingId) =>
+          d.departments.filter((x) => x.isActive && x.id !== editingId && x.legalEntity.id === v.legalEntityId),
+      },
+      {
+        name: "headId", label: "Head of department", type: "select", empty: "None",
+        options: (d) => d.employees.nodes.map((e) => ({ id: e.id, name: e.fullName })),
+      },
+    ],
+  },
+  locations: {
+    label: "Locations",
+    singular: "location",
+    intro: "Offices and sites. Leave policies and public holidays will attach to locations.",
+    fields: [
+      { name: "name", label: "Name", required: true },
+      { name: "legalEntityId", label: "Legal entity", type: "select", required: true, options: entityOptions, empty: "Choose…" },
+      { name: "city", label: "City" },
+      { name: "country", label: "Country code", required: true, upper: true, maxLength: 2, placeholder: "NG" },
+      { name: "timezone", label: "Time zone", placeholder: "Africa/Lagos", hint: "An IANA name, such as Africa/Lagos." },
+      { name: "address", label: "Address", type: "textarea", wide: true },
+    ],
+  },
+  jobTitles: {
+    label: "Job titles",
+    singular: "job title",
+    intro: "The titles you can give employees.",
+    fields: [{ name: "name", label: "Name", required: true, wide: true }],
+  },
+  grades: {
+    label: "Grades",
+    singular: "grade",
+    intro: "Pay grades or bands. Rank orders them from junior (low) to senior (high).",
+    fields: [
+      { name: "name", label: "Name", required: true },
+      { name: "rank", label: "Rank", type: "number", required: true, hint: "0 is the most junior." },
+    ],
+  },
+};
+
+function blankValues(kind: Kind, tenant: Tenant | null): Values {
+  const values: Values = { isActive: true };
+  for (const f of KINDS[kind].fields) values[f.name] = "";
+  if (kind === "legalEntities") Object.assign(values, { country: tenant?.country ?? "", currency: tenant?.currency ?? "" });
+  if (kind === "locations") values.country = tenant?.country ?? "";
+  if (kind === "grades") values.rank = "0";
+  return values;
+}
+
+type Row = { id: string; isActive: boolean } & Record<string, unknown>;
+
+function valuesOf(kind: Kind, row: Row): Values {
+  const ref = (v: unknown) => (v && typeof v === "object" && "id" in v ? String((v as Option).id) : "");
+  const values: Values = { isActive: row.isActive };
+  for (const f of KINDS[kind].fields) {
+    values[f.name] = f.name.endsWith("Id") ? ref(row[f.name.slice(0, -2)]) : String(row[f.name] ?? "");
+  }
+  return values;
+}
+
+function UnitDialog({ kind, data, editing, onClose, onSaved }: {
+  kind: Kind;
+  data: OrganizationQuery;
+  editing: { id?: string; values: Values };
+  onClose: () => void;
+  onSaved: (message: string) => void;
+}) {
+  const client = useClient();
+  const config = KINDS[kind];
+  const [values, setValues] = useState<Values>(editing.values);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const set = (name: string, value: string | boolean) => setValues((v) => ({ ...v, [name]: value }));
+
+  async function submit(ev: FormEvent) {
+    ev.preventDefault();
+    setFormError(undefined);
+    const missing = Object.fromEntries(
+      config.fields.filter((f) => f.required && !String(values[f.name]).trim()).map((f) => [f.name, `Enter the ${f.label.toLowerCase()}.`]),
+    );
+    setFieldErrors(missing);
+    if (Object.keys(missing).length) return;
+
+    const input: Record<string, unknown> = { id: editing.id ?? null, isActive: values.isActive };
+    for (const f of config.fields) {
+      const raw = String(values[f.name]).trim();
+      input[f.name] = f.type === "select" ? raw || null : f.type === "number" ? Number(raw) : f.upper ? raw.toUpperCase() : raw;
+    }
+    setBusy(true);
+    const result = await save(client, kind, input);
+    setBusy(false);
+    const errors: Record<string, string> = {};
+    const failed = reportErrors(result, result.errors, config.fields.map((f) => f.name),
+      (f, message) => { errors[f] = message; }, setFormError);
+    setFieldErrors(errors);
+    if (!failed) onSaved(`${config.singular.charAt(0).toUpperCase() + config.singular.slice(1)} saved.`);
+  }
+
+  return (
+    <Dialog open wide onClose={onClose} title={editing.id ? `Edit ${config.singular}` : `Add ${config.singular}`}
+      footer={<>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button type="submit" form="unit-form" busy={busy}>Save</Button>
+      </>}>
+      <form id="unit-form" onSubmit={submit} noValidate className="space-y-4">
+        {formError && <ErrorNote error={formError} />}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {config.fields.map((f) => {
+            const value = String(values[f.name]);
+            const invalid = !!fieldErrors[f.name];
+            return (
+              <div key={f.name} className={f.wide ? "sm:col-span-2" : undefined}>
+                <Field label={f.label} hint={f.hint} error={fieldErrors[f.name]} optional={!f.required}>
+                  {f.type === "select" ? (
+                    <Select value={value} aria-invalid={invalid} onChange={(e) => {
+                      set(f.name, e.target.value);
+                      // A parent from another entity would be rejected, so clear it when the entity changes.
+                      if (f.name === "legalEntityId" && kind === "departments") set("parentId", "");
+                    }}>
+                      <option value="">{f.empty}</option>
+                      {f.options?.(data, values, editing.id).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    </Select>
+                  ) : f.type === "textarea" ? (
+                    <Textarea rows={2} value={value} onChange={(e) => set(f.name, e.target.value)} />
+                  ) : (
+                    <Input value={value} aria-invalid={invalid} placeholder={f.placeholder} maxLength={f.maxLength}
+                      inputMode={f.type === "number" ? "numeric" : undefined}
+                      className={f.upper ? "uppercase" : undefined}
+                      onChange={(e) => set(f.name, e.target.value)} />
+                  )}
+                </Field>
+              </div>
+            );
+          })}
+        </div>
+        {editing.id && (
+          <Checkbox label="Active" description="Inactive units stay on existing records but cannot be chosen for new ones."
+            checked={values.isActive === true} onChange={(v) => set("isActive", v)} />
+        )}
+      </form>
+    </Dialog>
+  );
+}
+
+type SaveResult = { error?: Parameters<typeof reportErrors>[0]["error"]; errors?: { field?: string | null; message: string }[] };
+
+async function save(client: ReturnType<typeof useClient>, kind: Kind, input: Record<string, unknown>): Promise<SaveResult> {
+  // Each kind has its own typed mutation; the config above guarantees the input shape.
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const run = async (doc: any, key: string) => {
+    const r = await client.mutation(doc, { input } as any).toPromise();
+    return { error: r.error, errors: (r.data as any)?.[key]?.errors };
+  };
+  /* eslint-enable @typescript-eslint/no-explicit-any */
+  switch (kind) {
+    case "legalEntities": return run(SaveLegalEntityDocument, "saveLegalEntity");
+    case "locations": return run(SaveLocationDocument, "saveLocation");
+    case "departments": return run(SaveDepartmentDocument, "saveDepartment");
+    case "jobTitles": return run(SaveJobTitleDocument, "saveJobTitle");
+    case "grades": return run(SaveGradeDocument, "saveGrade");
+  }
+}
+
+function Active({ on }: { on: boolean }) {
+  return on ? <Badge tone="good" dot>Active</Badge> : <Badge>Inactive</Badge>;
+}
+
+const dash = <span className="text-muted">—</span>;
+
+export default function OrganizationPage() {
+  const { can, tenant } = useSession();
+  const [{ data, error }, reload] = useQuery({ query: OrganizationDocument });
+  const [tab, setTab] = useState<Kind>("legalEntities");
+  const [editing, setEditing] = useState<{ id?: string; values: Values } | null>(null);
+  const [saved, setSaved] = useState<string>();
+
+  if (!can(PERMS.orgManage)) return <Notice tone="warning">You do not have permission to manage the organization.</Notice>;
+  if (error) return <ErrorNote error={errorMessage(error)} />;
+  if (!data) return <Loading />;
+
+  const config = KINDS[tab];
+  const rows = data[tab] as Row[];
+  const edit = (row: Row) => { setSaved(undefined); setEditing({ id: row.id, values: valuesOf(tab, row) }); };
+  const add = () => { setSaved(undefined); setEditing({ values: blankValues(tab, tenant) }); };
+  const needsEntity = (tab === "departments" || tab === "locations") && !data.legalEntities.some((e) => e.isActive);
+
+  const columns: Record<Kind, { head: string[]; cells: (r: Row) => ReactNode[] }> = {
+    legalEntities: {
+      head: ["Name", "Registration no.", "Country", "Currency"],
+      cells: (r) => [r.name as string, (r.registrationNumber as string) || dash, r.country as string, r.currency as string],
+    },
+    departments: {
+      head: ["Name", "Legal entity", "Sits under", "Head"],
+      cells: (r) => {
+        const d = r as unknown as OrganizationQuery["departments"][number];
+        return [<>{d.name}{d.code && <span className="ml-2 text-xs text-muted">{d.code}</span>}</>, d.legalEntity.name, d.parent?.name ?? dash, d.head?.fullName ?? dash];
+      },
+    },
+    locations: {
+      head: ["Name", "Legal entity", "City", "Time zone"],
+      cells: (r) => {
+        const l = r as unknown as OrganizationQuery["locations"][number];
+        return [l.name, l.legalEntity.name, [l.city, l.country].filter(Boolean).join(", "), l.timezone || dash];
+      },
+    },
+    jobTitles: { head: ["Name"], cells: (r) => [r.name as string] },
+    grades: { head: ["Rank", "Name"], cells: (r) => [<span key="rank" className="tabular-nums">{r.rank as number}</span>, r.name as string] },
+  };
+
+  return (
+    <>
+      <PageHeader title="Organization" subtitle="The structure every employee record points to." />
+      {saved && <Notice tone="success">{saved}</Notice>}
+      <Tabs
+        value={tab}
+        onChange={(k) => { setTab(k); setSaved(undefined); }}
+        tabs={(Object.keys(KINDS) as Kind[]).map((k) => ({ key: k, label: KINDS[k].label, count: data[k].length }))}
+      />
+      <Card flush title={config.label} description={config.intro}
+        actions={<Button size="sm" icon={<IconPlus size={15} />} onClick={add} disabled={needsEntity}>Add {config.singular}</Button>}>
+        {needsEntity ? (
+          <div className="p-5"><Notice tone="info">Add a legal entity first. {config.label} belong to one.</Notice></div>
+        ) : !rows.length ? (
+          <div className="p-5">
+            <Empty title={`No ${config.label.toLowerCase()} yet`} icon={<IconSitemap size={18} />}
+              action={<Button size="sm" onClick={add}>Add {config.singular}</Button>} />
+          </div>
+        ) : (
+          <Table>
+            <thead>
+              <tr>
+                {columns[tab].head.map((h) => <TH key={h}>{h}</TH>)}
+                <TH>Status</TH>
+                <TH align="right"><span className="sr-only">Actions</span></TH>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className={r.isActive ? "transition hover:bg-subtle/60" : "text-muted transition hover:bg-subtle/60"}>
+                  {columns[tab].cells(r).map((c, i) => <TD key={i} className={i === 0 ? "font-medium" : undefined}>{c}</TD>)}
+                  <TD><Active on={r.isActive} /></TD>
+                  <TD align="right"><Button size="sm" variant="ghost" onClick={() => edit(r)}>Edit</Button></TD>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
+
+      {editing && (
+        <UnitDialog key={tab + (editing.id ?? "new")} kind={tab} data={data} editing={editing} onClose={() => setEditing(null)}
+          onSaved={(message) => { setEditing(null); setSaved(message); reload({ requestPolicy: "network-only" }); }} />
+      )}
+    </>
+  );
+}
