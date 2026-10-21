@@ -1,0 +1,704 @@
+input AdjustLeaveInput {
+  employeeId: ID!
+  leaveTypeId: ID!
+  amount: Decimal!
+  reason: String!
+}
+
+type CalendarAbsence {
+  requestId: ID!
+  employee: LeavePerson!
+  startDate: Date!
+  endDate: Date!
+  halfDay: Boolean!
+  status: LeaveStatus!
+
+  """Null for colleagues: they see only that someone is away."""
+  leaveType: LeaveType
+}
+
+input ChangeCompensationInput {
+  id: ID!
+  effectiveDate: Date!
+  amount: Decimal!
+  currency: String = null
+  frequency: PayFrequency! = MONTHLY
+  reason: String = null
+}
+
+input ChangeJobInput {
+  id: ID!
+  effectiveDate: Date!
+  changeType: JobChangeType! = CHANGE
+  reason: String = null
+  legalEntityId: ID
+  departmentId: ID
+  locationId: ID
+  jobTitleId: ID
+  gradeId: ID
+  managerId: ID
+  employmentType: EmploymentType
+}
+
+input ChangeStatusInput {
+  id: ID!
+  status: EmployeeStatus!
+  effectiveDate: Date = null
+  reason: String = null
+}
+
+type Compensation {
+  id: ID!
+  effectiveDate: Date!
+  amount: Decimal!
+  currency: String!
+  frequency: PayFrequency!
+  reason: String!
+}
+
+input CompensationInput {
+  amount: Decimal!
+  currency: String = null
+  frequency: PayFrequency! = MONTHLY
+}
+
+"""Date (isoformat)"""
+scalar Date
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+input DecideLeaveInput {
+  id: ID!
+  approve: Boolean!
+  note: String = null
+}
+
+"""Decimal (fixed-point)"""
+scalar Decimal
+
+input DelegateInput {
+  delegateId: ID!
+  startDate: Date!
+  endDate: Date!
+}
+
+type Delegation {
+  id: ID!
+  delegator: LeavePerson!
+  delegate: LeavePerson!
+  startDate: Date!
+  endDate: Date!
+}
+
+type DelegationPayload {
+  delegation: Delegation
+  errors: [FieldError!]!
+}
+
+type Department {
+  id: ID!
+  name: String!
+  code: String!
+  isActive: Boolean!
+  legalEntity: LegalEntity!
+  parent: Department
+  head: Employee
+}
+
+type DepartmentPayload {
+  department: Department
+  errors: [FieldError!]!
+}
+
+type Employee {
+  id: ID!
+  employeeNumber: String!
+  firstName: String!
+  middleName: String!
+  lastName: String!
+  preferredName: String!
+  fullName: String!
+  workEmail: String!
+  personalEmail: String!
+  phone: String!
+  dateOfBirth: Date
+  status: EmployeeStatus!
+  hireDate: Date!
+  probationEndDate: Date
+  terminationDate: Date
+  terminationReason: String!
+  archivedAt: DateTime
+  employmentType: EmploymentType!
+  legalEntity: LegalEntity!
+  department: Department
+  location: Location
+  jobTitle: JobTitle
+  grade: Grade
+  manager: Employee
+  directReports: [Employee!]!
+  gender: Gender
+  employmentHistory: [EmploymentRecord!]!
+
+  """Current base pay. Null unless you may see pay for this employee."""
+  compensation: Compensation
+
+  """Pay history, newest first. Empty unless you may see pay."""
+  compensationHistory: [Compensation!]!
+}
+
+type EmployeeConnection {
+  nodes: [Employee!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+input EmployeeFilter {
+  search: String = null
+  statuses: [EmployeeStatus!] = null
+  legalEntityId: ID = null
+  departmentId: ID = null
+  locationId: ID = null
+  managerId: ID = null
+  includeArchived: Boolean! = false
+}
+
+type EmployeeLeave {
+  employee: LeavePerson!
+  balances: [LeaveBalance!]!
+  requests: [LeaveRequestType!]!
+  ledger: [LedgerEntry!]!
+}
+
+type EmployeePayload {
+  employee: Employee
+  errors: [FieldError!]!
+}
+
+enum EmployeeStatus {
+  CANDIDATE
+  PROBATION
+  ACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+type EmploymentRecord {
+  id: ID!
+  effectiveDate: Date!
+  changeType: JobChangeType!
+  reason: String!
+  legalEntity: LegalEntity!
+  department: Department
+  location: Location
+  jobTitle: JobTitle
+  grade: Grade
+  manager: Employee
+  employmentType: EmploymentType!
+  createdAt: DateTime!
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERN
+}
+
+type FieldError {
+  field: String
+  message: String!
+}
+
+enum Gender {
+  FEMALE
+  MALE
+  OTHER
+  UNDISCLOSED
+}
+
+type Grade {
+  id: ID!
+  name: String!
+  rank: Int!
+  isActive: Boolean!
+}
+
+type GradePayload {
+  grade: Grade
+  errors: [FieldError!]!
+}
+
+input HireEmployeeInput {
+  firstName: String!
+  lastName: String!
+  hireDate: Date!
+  legalEntityId: ID!
+  employeeNumber: String = null
+  middleName: String = null
+  preferredName: String = null
+  workEmail: String = null
+  personalEmail: String = null
+  phone: String = null
+  dateOfBirth: Date = null
+  gender: Gender = null
+  probationEndDate: Date = null
+  status: EmployeeStatus = null
+  employmentType: EmploymentType = null
+  departmentId: ID = null
+  locationId: ID = null
+  jobTitleId: ID = null
+  gradeId: ID = null
+  managerId: ID = null
+  compensation: CompensationInput = null
+}
+
+type JobChangePayload {
+  employee: Employee
+  record: EmploymentRecord
+  errors: [FieldError!]!
+}
+
+enum JobChangeType {
+  HIRE
+  PROMOTION
+  TRANSFER
+  CHANGE
+  TERMINATION
+}
+
+type JobTitle {
+  id: ID!
+  name: String!
+  isActive: Boolean!
+}
+
+type JobTitlePayload {
+  jobTitle: JobTitle
+  errors: [FieldError!]!
+}
+
+enum LeaveAccrual {
+  UPFRONT
+  MONTHLY
+}
+
+type LeaveAdjustmentPayload {
+  balance: LeaveBalance
+  errors: [FieldError!]!
+}
+
+enum LeaveApprovalStatus {
+  WAITING
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+type LeaveApprovalStep {
+  level: Int!
+
+  """Null when HR decides this step."""
+  approver: LeavePerson
+  status: LeaveApprovalStatus!
+  actedBy: String
+  actedAt: DateTime
+  note: String!
+
+  """HR decided this step in place of the approver."""
+  overridden: Boolean!
+}
+
+type LeaveBalance {
+  leaveType: LeaveType!
+  policyName: String
+
+  """Full-year days this year, including long service."""
+  entitlement: Decimal
+
+  """Days on the ledger today. Null if the type keeps no balance."""
+  balance: Decimal
+
+  """Days in requests still waiting for approval."""
+  pending: Decimal!
+
+  """Balance less pending days: what can be requested now."""
+  available: Decimal
+  takenThisYear: Decimal!
+}
+
+type LeaveCalendar {
+  absences: [CalendarAbsence!]!
+  holidays: [PublicHoliday!]!
+}
+
+enum LeaveLedgerKind {
+  ACCRUAL
+  EXPIRY
+  TAKEN
+  REVERSAL
+  ADJUSTMENT
+}
+
+type LeavePerson {
+  id: ID!
+  fullName: String!
+}
+
+type LeavePolicy {
+  id: ID!
+  name: String!
+  leaveType: LeaveType!
+  daysPerYear: Decimal!
+  accrual: LeaveAccrual!
+  proRata: Boolean!
+  startsOn: Date!
+  carryOverMax: Decimal!
+  carryOverExpiryMonths: Int
+  legalEntity: LegalEntity
+  location: Location
+  grade: Grade
+  isActive: Boolean!
+  employmentType: EmploymentType
+  tenureRules: [TenureStep!]!
+}
+
+type LeavePolicyPayload {
+  policy: LeavePolicy
+  errors: [FieldError!]!
+}
+
+type LeaveQuote {
+  days: Decimal
+  available: Decimal
+  availableAfter: Decimal
+  errors: [FieldError!]!
+}
+
+type LeaveRequestPayload {
+  request: LeaveRequestType
+  errors: [FieldError!]!
+}
+
+type LeaveRequestType {
+  id: ID!
+  employee: LeavePerson!
+  leaveType: LeaveType!
+  startDate: Date!
+  endDate: Date!
+  halfDay: Boolean!
+  days: Decimal!
+  reason: String!
+  status: LeaveStatus!
+  createdAt: DateTime!
+  approvals: [LeaveApprovalStep!]!
+
+  """Whose turn it is. Null when HR decides or nothing is pending."""
+  waitingFor: LeavePerson
+  canDecide: Boolean!
+
+  """You may decide only as an HR override: it is someone else's turn."""
+  decideAsOverride: Boolean!
+  canCancel: Boolean!
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+type LeaveType {
+  id: ID!
+  name: String!
+  code: String!
+  color: String!
+  isPaid: Boolean!
+  tracksBalance: Boolean!
+  allowHalfDays: Boolean!
+  approvalLevels: Int!
+  isActive: Boolean!
+}
+
+type LeaveTypePayload {
+  leaveType: LeaveType
+  errors: [FieldError!]!
+}
+
+type LedgerEntry {
+  id: ID!
+  leaveType: LeaveType!
+  date: Date!
+  kind: LeaveLedgerKind!
+  amount: Decimal!
+  reason: String!
+}
+
+type LegalEntity {
+  id: ID!
+  name: String!
+  registrationNumber: String!
+  country: String!
+  currency: String!
+  isActive: Boolean!
+}
+
+type LegalEntityPayload {
+  legalEntity: LegalEntity
+  errors: [FieldError!]!
+}
+
+type Location {
+  id: ID!
+  name: String!
+  address: String!
+  city: String!
+  country: String!
+  timezone: String!
+  isActive: Boolean!
+  legalEntity: LegalEntity!
+}
+
+type LocationPayload {
+  location: Location
+  errors: [FieldError!]!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type LoginPayload {
+  me: Me
+  errors: [FieldError!]!
+}
+
+type Me {
+  user: User!
+  permissions: [String!]!
+  roles: [String!]!
+
+  """Your own employee record, if you have one."""
+  employee: Employee
+}
+
+type Mutation {
+  login(input: LoginInput!): LoginPayload!
+  logout: Boolean!
+  saveLegalEntity(input: SaveLegalEntityInput!): LegalEntityPayload!
+  saveLocation(input: SaveLocationInput!): LocationPayload!
+  saveDepartment(input: SaveDepartmentInput!): DepartmentPayload!
+  saveJobTitle(input: SaveJobTitleInput!): JobTitlePayload!
+  saveGrade(input: SaveGradeInput!): GradePayload!
+  hireEmployee(input: HireEmployeeInput!): EmployeePayload!
+  updateEmployee(input: UpdateEmployeeInput!): EmployeePayload!
+  changeEmployeeJob(input: ChangeJobInput!): JobChangePayload!
+  changeEmployeeCompensation(input: ChangeCompensationInput!): EmployeePayload!
+  changeEmployeeStatus(input: ChangeStatusInput!): EmployeePayload!
+  archiveEmployee(id: ID!): EmployeePayload!
+  requestLeave(input: RequestLeaveInput!): LeaveRequestPayload!
+  decideLeave(input: DecideLeaveInput!): LeaveRequestPayload!
+  cancelLeave(id: ID!): LeaveRequestPayload!
+  adjustLeaveBalance(input: AdjustLeaveInput!): LeaveAdjustmentPayload!
+  saveLeaveType(input: SaveLeaveTypeInput!): LeaveTypePayload!
+  saveLeavePolicy(input: SaveLeavePolicyInput!): LeavePolicyPayload!
+  savePublicHoliday(input: SavePublicHolidayInput!): PublicHolidayPayload!
+  deletePublicHoliday(id: ID!): Boolean!
+  delegateApprovals(input: DelegateInput!): DelegationPayload!
+  revokeDelegation(id: ID!): DelegationPayload!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+enum PayFrequency {
+  ANNUAL
+  MONTHLY
+  HOURLY
+}
+
+type PublicHoliday {
+  id: ID!
+  name: String!
+  date: Date!
+  location: Location
+}
+
+type PublicHolidayPayload {
+  holiday: PublicHoliday
+  errors: [FieldError!]!
+}
+
+type Query {
+  """The organization on this web address, or null on the platform address."""
+  tenant: TenantPublic
+
+  """The signed-in user in this organization, or null."""
+  me: Me
+  legalEntities: [LegalEntity!]!
+  locations: [Location!]!
+  departments: [Department!]!
+  jobTitles: [JobTitle!]!
+  grades: [Grade!]!
+  employees(filter: EmployeeFilter = null, first: Int! = 50, after: String = null): EmployeeConnection!
+  employee(id: ID!): Employee!
+  leaveTypes(includeInactive: Boolean! = false): [LeaveType!]!
+  leavePolicies: [LeavePolicy!]!
+
+  """
+  Holidays in a year. HR sees every location; others see their own and company-wide ones.
+  """
+  publicHolidays(year: Int!): [PublicHoliday!]!
+
+  """Balances, requests and ledger. Without employeeId: your own."""
+  employeeLeave(employeeId: ID = null): EmployeeLeave!
+
+  """What a request would use, and what would be left, before it is made."""
+  leaveQuote(leaveTypeId: ID!, startDate: Date!, endDate: Date!, halfDay: Boolean! = false, employeeId: ID = null): LeaveQuote!
+
+  """
+  Requests waiting for you (or someone you cover). HR can ask for every pending request.
+  """
+  leaveApprovals(everyone: Boolean! = false): [LeaveRequestType!]!
+
+  """Who is away between two dates (LV-06), with public holidays."""
+  leaveCalendar(start: Date!, end: Date!, departmentId: ID = null): LeaveCalendar!
+
+  """Your approval delegations that are current or upcoming."""
+  myDelegations: [Delegation!]!
+}
+
+input RequestLeaveInput {
+  leaveTypeId: ID!
+  startDate: Date!
+  endDate: Date!
+  halfDay: Boolean! = false
+  reason: String = null
+
+  """HR only: request for someone else."""
+  employeeId: ID = null
+}
+
+input SaveDepartmentInput {
+  id: ID = null
+  legalEntityId: ID
+  parentId: ID
+  headId: ID
+  name: String
+  code: String
+  isActive: Boolean
+}
+
+input SaveGradeInput {
+  id: ID = null
+  name: String
+  rank: Int
+  isActive: Boolean
+}
+
+input SaveJobTitleInput {
+  id: ID = null
+  name: String
+  isActive: Boolean
+}
+
+input SaveLeavePolicyInput {
+  id: ID = null
+  leaveTypeId: ID
+  name: String
+  daysPerYear: Decimal
+  accrual: LeaveAccrual
+  proRata: Boolean
+  tenureRules: [TenureStepInput!]
+  startsOn: Date
+  carryOverMax: Decimal
+  carryOverExpiryMonths: Int
+  legalEntityId: ID
+  locationId: ID
+  gradeId: ID
+  employmentType: EmploymentType
+  isActive: Boolean
+}
+
+input SaveLeaveTypeInput {
+  id: ID = null
+  name: String
+  code: String
+  color: String
+  isPaid: Boolean
+  tracksBalance: Boolean
+  allowHalfDays: Boolean
+  approvalLevels: Int
+  isActive: Boolean
+}
+
+input SaveLegalEntityInput {
+  id: ID = null
+  name: String
+  registrationNumber: String
+  country: String
+  currency: String
+  isActive: Boolean
+}
+
+input SaveLocationInput {
+  id: ID = null
+  legalEntityId: ID
+  name: String
+  address: String
+  city: String
+  country: String
+  timezone: String
+  isActive: Boolean
+}
+
+input SavePublicHolidayInput {
+  id: ID = null
+  name: String
+  date: Date
+  locationId: ID
+}
+
+type TenantPublic {
+  name: String!
+  slug: String!
+  primaryColor: String!
+  country: String!
+  currency: String!
+}
+
+type TenureStep {
+  years: Int!
+  extraDays: Decimal!
+}
+
+input TenureStepInput {
+  years: Int!
+  extraDays: Decimal!
+}
+
+input UpdateEmployeeInput {
+  id: ID!
+  firstName: String
+  middleName: String
+  lastName: String
+  preferredName: String
+  workEmail: String
+  personalEmail: String
+  phone: String
+  dateOfBirth: Date
+  gender: Gender
+}
+
+type User {
+  id: ID!
+  email: String!
+  firstName: String!
+  lastName: String!
+  fullName: String!
+}

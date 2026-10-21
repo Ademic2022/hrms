@@ -1,1 +1,42 @@
-# hrms
+# hrms-client
+
+Next.js (App Router) + TypeScript web app for the HRMS. Talks to `../hrms-server` over
+GraphQL with [urql](https://commerce.nearform.com/open-source/urql/).
+
+## Run locally
+
+Start the API first (see `../hrms-server/README.md`), then:
+
+```sh
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open http://acme.localhost:3000 (the subdomain picks the tenant). Next.js forwards
+`/graphql` and `/api/*` to Django, so the browser only ever talks to one origin.
+
+## GraphQL types
+
+Types and typed documents in `src/gql/` are generated from the server's `schema.graphql`.
+After the API changes:
+
+```sh
+npm run schema    # copies ../hrms-server/schema.graphql and runs codegen
+```
+
+Write queries with `graphql(\`...\`)` from `@/gql`; never hand-write API types.
+
+## Checks
+
+```sh
+npm run lint
+npm run typecheck
+npm test
+```
+
+## Notes
+
+- Permission checks in the UI (`useSession().can(...)`) only shape what is shown. The API
+  enforces every rule.
+- `src/proxy.ts` sends visitors without a session cookie to `/login`.
