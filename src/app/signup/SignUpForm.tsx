@@ -76,7 +76,7 @@ export function SignUpForm({ addressSuffix }: { addressSuffix: string }) {
   }
 
   return (
-    <AuthShell title="Set up your company" subtitle="Your own workspace, ready in a minute. You can change everything later."
+    <AuthShell wide title="Set up your company" subtitle="Your own workspace, ready in a minute. You can change everything later."
       aside={{
         heading: "HR that runs itself, from day one.",
         text: "Create your company's private workspace, then bring your people in from Excel and invite your team.",

@@ -37,8 +37,10 @@ function ProductMark() {
   );
 }
 
-export function AuthShell({ title, subtitle, children, footer, aside }: {
+export function AuthShell({ title, subtitle, children, footer, aside, wide }: {
   title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode;
+  /** Room for a longer form, such as sign-up. */
+  wide?: boolean;
   /** What the brand panel says. Defaults suit a company's sign-in page. */
   aside?: Aside;
 }) {
@@ -49,7 +51,7 @@ export function AuthShell({ title, subtitle, children, footer, aside }: {
   return (
     // On wide screens the page itself never scrolls: the brand panel stays put and only the
     // form column scrolls. On phones the two stack and the page scrolls as usual.
-    <div className="min-h-screen bg-background lg:grid lg:h-dvh lg:grid-cols-[minmax(420px,5fr)_7fr] lg:overflow-hidden" style={{ ["--brand" as string]: brand }}>
+    <div className="min-h-screen bg-background lg:grid lg:h-dvh lg:grid-cols-2 lg:overflow-hidden" style={{ ["--brand" as string]: brand }}>
       {/* Identity panel */}
       <aside className="relative overflow-hidden" style={{ backgroundColor: brand, color: ink }}>
         <div
@@ -58,41 +60,44 @@ export function AuthShell({ title, subtitle, children, footer, aside }: {
           style={{ backgroundImage: `repeating-linear-gradient(135deg, currentColor 0 1px, transparent 1px 14px)` }}
         />
         <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-40 h-[28rem] w-[28rem] rounded-full border-[56px] border-current opacity-[0.06]" />
-        <div className={`relative flex h-full flex-col px-6 py-6 sm:px-10 lg:px-12 lg:py-12 ${loading ? "opacity-0" : "opacity-100"} transition-opacity duration-300`}>
-          <div className="flex items-center gap-4">
-            {tenant?.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={tenant.logoUrl} alt="" className="h-12 w-12 rounded-xl bg-white object-contain p-1.5" />
-            ) : tenant ? (
-              <span className="grid h-12 w-12 place-items-center rounded-xl bg-white/15 font-display text-lg font-semibold ring-1 ring-inset ring-white/25">
-                {initials(tenant.name)}
-              </span>
-            ) : (
-              <ProductMark />
-            )}
-            <div className="min-w-0 truncate font-display text-lg font-semibold leading-tight sm:text-xl">{tenant?.name ?? SITE.name}</div>
-          </div>
+        {/* One block, centred both ways, so the panel reads as a whole on any screen width. */}
+        <div className={`relative flex h-full flex-col px-6 py-6 sm:px-10 lg:items-center lg:justify-center lg:px-12 lg:py-12 ${loading ? "opacity-0" : "opacity-100"} transition-opacity duration-300`}>
+          <div className="w-full lg:max-w-[440px]">
+            <div className="flex items-center gap-4">
+              {tenant?.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={tenant.logoUrl} alt="" className="h-12 w-12 rounded-xl bg-white object-contain p-1.5" />
+              ) : tenant ? (
+                <span className="grid h-12 w-12 place-items-center rounded-xl bg-white/15 font-display text-lg font-semibold ring-1 ring-inset ring-white/25">
+                  {initials(tenant.name)}
+                </span>
+              ) : (
+                <ProductMark />
+              )}
+              <div className="min-w-0 truncate font-display text-lg font-semibold leading-tight sm:text-xl">{tenant?.name ?? SITE.name}</div>
+            </div>
 
-          <div className="mt-auto hidden lg:block">
-            <div className="h-px w-12 bg-current opacity-40" />
-            <p className="mt-6 max-w-sm font-display text-[34px] font-medium leading-[1.15] tracking-[-0.01em]">
-              {aside?.heading ?? "Your people, their jobs and their pay, in one secure place."}
-            </p>
-            <p className="mt-4 max-w-sm text-[15px] leading-relaxed opacity-75">
-              {aside?.text ?? (tenant
-                ? `For employees and managers at ${tenant.name}. Sign in with your work email address.`
-                : "Sign in with your work email address.")}
-            </p>
-            {aside?.points && (
-              <ul className="mt-8 space-y-3 text-[15px]">
-                {aside.points.map((point) => (
-                  <li key={point} className="flex gap-3">
-                    <svg viewBox="0 0 16 16" className="mt-1 h-4 w-4 flex-none opacity-80" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="m3 8.5 3.2 3L13 5" /></svg>
-                    <span className="opacity-90">{point}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="hidden lg:mt-14 lg:block">
+              <div className="h-px w-12 bg-current opacity-40" />
+              <p className="mt-6 max-w-sm font-display text-[34px] font-medium leading-[1.15] tracking-[-0.01em]">
+                {aside?.heading ?? "Your people, their jobs and their pay, in one secure place."}
+              </p>
+              <p className="mt-4 max-w-sm text-[15px] leading-relaxed opacity-75">
+                {aside?.text ?? (tenant
+                  ? `For employees and managers at ${tenant.name}. Sign in with your work email address.`
+                  : "Sign in with your work email address.")}
+              </p>
+              {aside?.points && (
+                <ul className="mt-8 space-y-3 text-[15px]">
+                  {aside.points.map((point) => (
+                    <li key={point} className="flex gap-3">
+                      <svg viewBox="0 0 16 16" className="mt-1 h-4 w-4 flex-none opacity-80" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="m3 8.5 3.2 3L13 5" /></svg>
+                      <span className="opacity-90">{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       </aside>
@@ -100,14 +105,14 @@ export function AuthShell({ title, subtitle, children, footer, aside }: {
       {/* Form panel */}
       <main className="flex flex-col px-6 sm:px-10 lg:h-dvh lg:overflow-y-auto">
         <div className="flex flex-1 items-center justify-center py-10 lg:py-16">
-          <div className="w-full max-w-[400px]">
+          <div className={`w-full ${wide ? "max-w-[460px]" : "max-w-[400px]"}`}>
             <h1 className="font-display text-[32px] font-medium leading-tight tracking-[-0.01em] text-ink">{title}</h1>
             {subtitle && <p className="mt-2 text-[15px] leading-relaxed text-muted">{subtitle}</p>}
             <div className="mt-8">{children}</div>
             {footer && <div className="mt-8 border-t border-line pt-6 text-sm text-muted">{footer}</div>}
           </div>
         </div>
-        <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line py-5 text-xs text-muted">
+        <footer className="flex flex-wrap items-center justify-center gap-3 border-t border-line py-5 text-xs text-muted">
           <span className="inline-flex items-center gap-1.5">
             <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden><rect x="3" y="7" width="10" height="7" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>
             Encrypted connection. HR will never ask for your password.
