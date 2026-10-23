@@ -2,8 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { Fraunces, Instrument_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 
+import { config } from "@fortawesome/fontawesome-svg-core";
+import "@fortawesome/fontawesome-svg-core/styles.css";
+
 import { Providers } from "./providers";
 import "./globals.css";
+
+// Font Awesome's CSS is imported above, so it must not inject it again at runtime.
+config.autoAddCss = false;
 
 // One type system for the whole product: a serif for headings, a clean sans for everything else.
 const display = Fraunces({ subsets: ["latin"], variable: "--ff-display", style: ["normal", "italic"], display: "swap" });

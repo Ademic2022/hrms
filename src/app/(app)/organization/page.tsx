@@ -19,7 +19,7 @@ const OrganizationDocument = graphql(`
     legalEntities { id name registrationNumber country currency isActive }
     locations { id name address city country timezone isActive legalEntity { id name } }
     departments { id name code isActive legalEntity { id name } parent { id name } head { id fullName } }
-    jobTitles { id name isActive }
+    jobTitles { id name description isActive }
     grades { id name rank isActive }
     employees(filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }, first: 100) { nodes { id fullName } }
   }
@@ -119,8 +119,11 @@ const KINDS: Record<Kind, { label: string; singular: string; intro: string; fiel
   jobTitles: {
     label: "Job titles",
     singular: "job title",
-    intro: "The titles you can give employees.",
-    fields: [{ name: "name", label: "Name", required: true, wide: true }],
+    intro: "The titles you can give employees. The description shows on the Job tab of each record.",
+    fields: [
+      { name: "name", label: "Name", required: true, wide: true },
+      { name: "description", label: "Job description", type: "textarea", wide: true, hint: "What the role is for and what it covers." },
+    ],
   },
   grades: {
     label: "Grades",
@@ -217,7 +220,7 @@ function UnitDialog({ kind, data, editing, onClose, onSaved }: {
                       {f.options?.(data, values, editing.id).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                     </Select>
                   ) : f.type === "textarea" ? (
-                    <Textarea rows={2} value={value} onChange={(e) => set(f.name, e.target.value)} />
+                    <Textarea rows={f.name === "description" ? 6 : 2} value={value} onChange={(e) => set(f.name, e.target.value)} />
                   ) : (
                     <Input value={value} aria-invalid={invalid} placeholder={f.placeholder} maxLength={f.maxLength}
                       inputMode={f.type === "number" ? "numeric" : undefined}

@@ -8,10 +8,10 @@ import { z } from "zod";
 
 import { Button, Dialog, ErrorNote, Field, Input, Select } from "@/components/ui";
 import { graphql } from "@/gql";
-import type { EmployeeQuery, EmployeeStatus, EmploymentType, Gender, JobChangeType, PayFrequency } from "@/gql/graphql";
+import type { EmployeeProfileQuery, EmployeeStatus, EmploymentType, Gender, JobChangeType, OvertimeStatus, PayFrequency, PaySchedule, PayType } from "@/gql/graphql";
 import { reportErrors, today } from "@/lib/forms";
 
-export type ProfileEmployee = EmployeeQuery["employee"];
+export type ProfileEmployee = EmployeeProfileQuery["employee"];
 
 interface DialogProps {
   employee: ProfileEmployee;
@@ -170,7 +170,7 @@ type JobValues = z.infer<typeof jobSchema>;
 const JOB_FIELDS = Object.keys(jobSchema.shape) as (keyof JobValues)[];
 const JOB_REFS = ["legalEntityId", "departmentId", "locationId", "jobTitleId", "gradeId", "managerId", "employmentType"] as const;
 
-export function ChangeJobDialog({ employee: e, onClose, onSaved }: DialogProps) {
+export function ChangeJobDialog({ employee: e, onClose, onSaved, changeType = "PROMOTION" }: DialogProps & { changeType?: "PROMOTION" | "TRANSFER" | "CHANGE" }) {
   const [{ data }] = useQuery({ query: JobOptionsDocument });
   const [, changeJob] = useMutation(ChangeJobDocument);
   const [formError, setFormError] = useState<string>();
@@ -181,7 +181,7 @@ export function ChangeJobDialog({ employee: e, onClose, onSaved }: DialogProps) 
   };
   const { register, handleSubmit, control, setError, formState: { errors, isSubmitting } } = useForm<JobValues>({
     resolver: zodResolver(jobSchema),
-    defaultValues: { effectiveDate: today(), changeType: "PROMOTION", reason: "", ...current },
+    defaultValues: { effectiveDate: today(), changeType, reason: "", ...current },
   });
   const entityId = useWatch({ control, name: "legalEntityId" });
 
@@ -215,7 +215,7 @@ export function ChangeJobDialog({ employee: e, onClose, onSaved }: DialogProps) 
     activeOptions(items, keep).filter((i) => i.legalEntity.id === entityId);
 
   return (
-    <Dialog open wide onClose={onClose} title="Change job"
+    <Dialog open wide onClose={onClose} title={changeType === "PROMOTION" ? "Promotion" : "Change job information"}
       description="Records a new entry in the employment history. A future date takes effect on that day."
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
@@ -272,11 +272,27 @@ export const FREQUENCIES: { value: PayFrequency; label: string }[] = [
   { value: "HOURLY", label: "Per hour" },
 ];
 
+export const PAY_TYPES: { value: PayType; label: string }[] = [
+  { value: "SALARY", label: "Salary" }, { value: "HOURLY", label: "Hourly" },
+  { value: "COMMISSION", label: "Commission only" }, { value: "CONTRACT", label: "Contract" },
+];
+export const PAY_SCHEDULES: { value: PaySchedule; label: string }[] = [
+  { value: "MONTHLY", label: "Monthly" }, { value: "SEMIMONTHLY", label: "Twice a month" },
+  { value: "BIWEEKLY", label: "Every other week" }, { value: "WEEKLY", label: "Weekly" },
+];
+export const OVERTIME: { value: OvertimeStatus; label: string }[] = [
+  { value: "EXEMPT", label: "Exempt" }, { value: "NON_EXEMPT", label: "Non-exempt" },
+];
+
 const paySchema = z.object({
   amount: z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Enter an amount like 450000 or 450000.50."),
   frequency: z.enum(["MONTHLY", "ANNUAL", "HOURLY"]),
+  payType: z.enum(["SALARY", "HOURLY", "COMMISSION", "CONTRACT"]),
+  paySchedule: z.enum(["", "MONTHLY", "SEMIMONTHLY", "BIWEEKLY", "WEEKLY"]),
+  overtime: z.enum(["", "EXEMPT", "NON_EXEMPT"]),
   effectiveDate: z.iso.date("Choose the date the new pay starts."),
   reason: z.string().trim().max(255),
+  comment: z.string().trim().max(500),
 });
 
 type PayValues = z.infer<typeof paySchema>;
@@ -287,7 +303,9 @@ export function ChangePayDialog({ employee: e, currency, onClose, onSaved }: Dia
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<PayValues>({
     resolver: zodResolver(paySchema),
     defaultValues: {
-      amount: "", frequency: e.compensation?.frequency ?? "MONTHLY", effectiveDate: today(), reason: "",
+      amount: "", frequency: e.compensation?.frequency ?? "MONTHLY", payType: e.compensation?.payType ?? "SALARY",
+      paySchedule: e.compensation?.paySchedule ?? "", overtime: e.compensation?.overtime ?? "",
+      effectiveDate: today(), reason: "", comment: "",
     },
   });
 
@@ -295,7 +313,8 @@ export function ChangePayDialog({ employee: e, currency, onClose, onSaved }: Dia
     setFormError(undefined);
     const result = await changePay({
       input: { id: e.id, amount: v.amount, frequency: v.frequency, effectiveDate: v.effectiveDate, reason: v.reason || null,
-        currency: e.compensation?.currency ?? currency },
+        currency: e.compensation?.currency ?? currency, payType: v.payType, paySchedule: v.paySchedule || null,
+        overtime: v.overtime || null, comment: v.comment || null },
     });
     const failed = reportErrors(result, result.data?.changeEmployeeCompensation.errors, Object.keys(paySchema.shape) as (keyof PayValues)[],
       (f, message) => setError(f, { message }), setFormError);
@@ -320,11 +339,33 @@ export function ChangePayDialog({ employee: e, currency, onClose, onSaved }: Dia
             </Select>
           </Field>
         </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Pay type">
+            <Select {...register("payType")}>
+              {PAY_TYPES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </Select>
+          </Field>
+          <Field label="Pay schedule" optional>
+            <Select {...register("paySchedule")}>
+              <option value="">Not set</option>
+              {PAY_SCHEDULES.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </Select>
+          </Field>
+          <Field label="Overtime" optional>
+            <Select {...register("overtime")}>
+              <option value="">Not set</option>
+              {OVERTIME.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+            </Select>
+          </Field>
+        </div>
         <Field label="Effective from" error={errors.effectiveDate?.message}>
           <Input type="date" aria-invalid={!!errors.effectiveDate} {...register("effectiveDate")} />
         </Field>
         <Field label="Reason" optional>
           <Input {...register("reason")} placeholder="Annual increase" />
+        </Field>
+        <Field label="Comment" optional>
+          <Input {...register("comment")} />
         </Field>
       </form>
     </Dialog>

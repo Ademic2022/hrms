@@ -1,6 +1,23 @@
+type AccountAccess {
+  email: String!
+  roles: [String!]!
+  isActive: Boolean!
+  invitePending: Boolean!
+}
+
 type AccountPayload {
   ok: Boolean!
   errors: [FieldError!]!
+}
+
+input AddTaskInput {
+  employeeId: ID!
+  kind: ChecklistKind!
+  title: String!
+  description: String = ""
+  category: String = ""
+  assignee: TaskAssignee! = HR
+  dueDate: Date = null
 }
 
 input AdjustLeaveInput {
@@ -8,6 +25,101 @@ input AdjustLeaveInput {
   leaveTypeId: ID!
   amount: Decimal!
   reason: String!
+}
+
+type Announcement {
+  id: ID!
+  title: String!
+  body: String!
+  authorName: String!
+  publishedAt: DateTime!
+  pinned: Boolean!
+}
+
+input AnnouncementInput {
+  id: ID = null
+  title: String!
+  body: String!
+  pinned: Boolean! = false
+  publishedAt: DateTime = null
+}
+
+type AnnouncementPayload {
+  announcement: Announcement
+  errors: [FieldError!]!
+}
+
+enum BenefitBasis {
+  BASIC
+  BHT
+  GROSS
+  ANNUAL_EMOLUMENTS
+  FIXED
+}
+
+enum BenefitCoverage {
+  EMPLOYEE
+  SPOUSE
+  CHILDREN
+  FAMILY
+}
+
+type BenefitEnrollment {
+  id: ID!
+  plan: BenefitPlan!
+  status: BenefitEnrollmentStatus!
+  startDate: Date
+  endDate: Date
+  memberNumber: String!
+  coverage: BenefitCoverage
+  dependants: Int!
+  note: String!
+}
+
+enum BenefitEnrollmentStatus {
+  ENROLLED
+  PENDING
+  WAIVED
+  ENDED
+}
+
+enum BenefitKind {
+  PENSION
+  NHF
+  HEALTH
+  LIFE
+  COMPENSATION
+  OTHER
+}
+
+type BenefitPlan {
+  id: ID!
+  name: String!
+  kind: BenefitKind!
+  provider: String!
+  description: String!
+  employeeRate: Decimal
+  employerRate: Decimal
+  basis: BenefitBasis
+  statutory: Boolean!
+  isActive: Boolean!
+  enrolledCount: Int!
+}
+
+type BenefitPlanPayload {
+  plan: BenefitPlan
+  errors: [FieldError!]!
+}
+
+type BonusTarget {
+  percent: Decimal
+  amount: Decimal
+}
+
+input BonusTargetInput {
+  id: ID!
+  percent: Decimal = null
+  amount: Decimal = null
 }
 
 type CalendarAbsence {
@@ -22,6 +134,19 @@ type CalendarAbsence {
   leaveType: LeaveType
 }
 
+type Celebration {
+  person: HomePerson!
+
+  """"birthday" or "anniversary"."""
+  kind: String!
+
+  """This year's (or next year's) occurrence."""
+  date: Date!
+
+  """For an anniversary: years of service reached."""
+  years: Int
+}
+
 input ChangeCompensationInput {
   id: ID!
   effectiveDate: Date!
@@ -29,6 +154,10 @@ input ChangeCompensationInput {
   currency: String = null
   frequency: PayFrequency! = MONTHLY
   reason: String = null
+  payType: PayType! = SALARY
+  paySchedule: PaySchedule = null
+  overtime: OvertimeStatus = null
+  comment: String = null
 }
 
 input ChangeJobInput {
@@ -84,6 +213,49 @@ input ChangeStatusInput {
   reason: String = null
 }
 
+type Checklist {
+  kind: ChecklistKind!
+
+  """Hire date for onboarding; last day (or today) for offboarding."""
+  startDate: Date!
+  tasks: [EmployeeTask!]!
+}
+
+enum ChecklistKind {
+  ONBOARDING
+  OFFBOARDING
+}
+
+type ChecklistPayload {
+  tasks: [EmployeeTask!]!
+  errors: [FieldError!]!
+}
+
+input ColumnInput {
+  key: String = null
+  name: String!
+  type: CustomFieldType! = TEXT
+  choices: [String!]! = []
+}
+
+type CompanyLink {
+  id: ID!
+  group: String!
+  label: String!
+  url: String!
+}
+
+input CompanyLinkInput {
+  group: String = ""
+  label: String!
+  url: String!
+}
+
+type CompanyLinksPayload {
+  links: [CompanyLink!]!
+  errors: [FieldError!]!
+}
+
 type CompanySettings {
   name: String!
   country: String!
@@ -121,7 +293,11 @@ type Compensation {
   amount: Decimal!
   currency: String!
   frequency: PayFrequency!
+  payType: PayType!
+  paySchedule: PaySchedule
+  overtime: OvertimeStatus
   reason: String!
+  comment: String!
 }
 
 input CompensationInput {
@@ -160,6 +336,26 @@ enum CustomFieldType {
   DATE
   CHOICE
   YES_NO
+}
+
+type CustomTable {
+  id: ID!
+  key: String!
+  name: String!
+  columns: [TableColumn!]!
+  hrOnly: Boolean!
+
+  """Holds pay: shown only to those who may see the employee's pay."""
+  pay: Boolean!
+
+  """A standard table: fixed columns, can be archived but not deleted."""
+  standard: Boolean!
+  isActive: Boolean!
+}
+
+type CustomTablePayload {
+  table: CustomTable
+  errors: [FieldError!]!
 }
 
 type CustomValue {
@@ -268,7 +464,16 @@ type EmergencyContact {
   name: String!
   relationship: String!
   phone: String!
+  workPhone: String!
+  workPhoneExt: String!
+  homePhone: String!
   email: String!
+  addressLine1: String!
+  addressLine2: String!
+  city: String!
+  state: String!
+  postalCode: String!
+  country: String!
   isPrimary: Boolean!
 }
 
@@ -277,8 +482,17 @@ input EmergencyContactInput {
   employeeId: ID!
   name: String!
   relationship: String = ""
-  phone: String!
+  phone: String = ""
+  workPhone: String = ""
+  workPhoneExt: String = ""
+  homePhone: String = ""
   email: String = ""
+  addressLine1: String = ""
+  addressLine2: String = ""
+  city: String = ""
+  state: String = ""
+  postalCode: String = ""
+  country: String = ""
   isPrimary: Boolean! = false
 }
 
@@ -296,6 +510,8 @@ type Employee {
   preferredName: String!
   fullName: String!
   workEmail: String!
+  workPhone: String!
+  workPhoneExt: String!
   status: EmployeeStatus!
   hireDate: Date!
   probationEndDate: Date
@@ -314,10 +530,36 @@ type Employee {
   phone: String!
   dateOfBirth: Date
   gender: Gender
+  maritalStatus: MaritalStatus
+
+  """
+  Personal details beyond name and work contact, empty unless you may see them.
+  """
+  personal: PersonalDetails
+
+  """A ten-minute link to the employee's photo, or null."""
+  photoUrl: String
+
+  """Rows of the custom tables you may see, newest first."""
+  tableRows: [TableRow!]!
   employmentHistory: [EmploymentRecord!]!
 
   """Current base pay. Null unless you may see pay for this employee."""
   compensation: Compensation
+
+  """Potential bonus. Null unless you may see pay for this employee."""
+  bonusTarget: BonusTarget
+
+  """
+  The employee's sign-in and roles. Null without users.manage or a linked user.
+  """
+  access: AccountAccess
+
+  """Lifecycle statuses over time, newest first."""
+  statusHistory: [StatusRecord!]!
+
+  """HR notes, newest first. Empty unless you may manage this employee."""
+  notes: [EmployeeNote!]!
 
   """Pay history, newest first. Empty unless you may see pay."""
   compensationHistory: [Compensation!]!
@@ -371,6 +613,13 @@ type EmployeeLeave {
   ledger: [LedgerEntry!]!
 }
 
+type EmployeeNote {
+  id: ID!
+  body: String!
+  authorName: String!
+  createdAt: DateTime!
+}
+
 type EmployeePayload {
   employee: Employee
   errors: [FieldError!]!
@@ -382,6 +631,21 @@ enum EmployeeStatus {
   ACTIVE
   ON_LEAVE
   TERMINATED
+}
+
+type EmployeeTask {
+  id: ID!
+  kind: ChecklistKind!
+  title: String!
+  description: String!
+  category: String!
+  assignee: TaskAssignee!
+  dueDate: Date
+  completedAt: DateTime
+  completedByName: String
+
+  """Whether you may tick this task off."""
+  canComplete: Boolean!
 }
 
 type EmploymentRecord {
@@ -404,6 +668,11 @@ enum EmploymentType {
   PART_TIME
   CONTRACT
   INTERN
+}
+
+type EnrollmentPayload {
+  enrollment: BenefitEnrollment
+  errors: [FieldError!]!
 }
 
 type FieldError {
@@ -454,6 +723,46 @@ input HireEmployeeInput {
   compensation: CompensationInput = null
 }
 
+type Home {
+  celebrations: [Celebration!]!
+  newHires: [NewHire!]!
+  myStuff: MyStuff
+  directReports: [ReportCard!]!
+
+  """For people with employees.view, within their scope."""
+  insights: Insights
+}
+
+type HomePerson {
+  id: ID!
+  fullName: String!
+  jobTitle: String
+  photoUrl: String
+}
+
+type HomeWidget {
+  key: String!
+  hidden: Boolean!
+}
+
+type Insights {
+  """People employed at each month end, last 12 months."""
+  headcount: [MonthValue!]!
+  leavers: [MonthValue!]!
+
+  """Leavers in the last 12 months over average headcount, as a percentage."""
+  turnoverRate: Decimal!
+  byLocation: [LabelValue!]!
+
+  """Pending leave starting within 7 days."""
+  pendingUrgent: Int!
+  pendingOther: Int!
+
+  """No pay change for 12+ months. Null without compensation.view."""
+  withoutPayRaise: Int
+  onboarding: OnboardingSummary
+}
+
 input InviteMemberInput {
   email: String!
   firstName: String!
@@ -485,12 +794,45 @@ enum JobChangeType {
 type JobTitle {
   id: ID!
   name: String!
+  description: String!
   isActive: Boolean!
 }
 
 type JobTitlePayload {
   jobTitle: JobTitle
   errors: [FieldError!]!
+}
+
+type LabelValue {
+  label: String!
+  value: Int!
+}
+
+type LayoutItem {
+  """
+  "field:city", "group:address", "custom:t_shirt_size", "table:assets" or "block:leave".
+  """
+  id: String!
+  kind: String!
+  key: String!
+  label: String!
+
+  """For a group: its standard field keys, in order."""
+  fields: [String!]!
+}
+
+type LayoutSection {
+  key: String!
+  title: String!
+  icon: String!
+  items: [LayoutItem!]!
+}
+
+type LayoutTab {
+  key: String!
+  name: String!
+  builtin: Boolean!
+  sections: [LayoutSection!]!
 }
 
 enum LeaveAccrual {
@@ -546,6 +888,29 @@ type LeaveBalance {
 type LeaveCalendar {
   absences: [CalendarAbsence!]!
   holidays: [PublicHoliday!]!
+}
+
+type LeaveHistory {
+  """Years with ledger rows, newest first."""
+  years: [Int!]!
+
+  """Newest first."""
+  rows: [LeaveHistoryRow!]!
+}
+
+type LeaveHistoryRow {
+  id: ID!
+  date: Date!
+  kind: LeaveLedgerKind!
+  description: String!
+  detail: String!
+
+  """Days taken away, as a positive number."""
+  used: Decimal
+  earned: Decimal
+
+  """The balance after this row."""
+  balance: Decimal!
 }
 
 enum LeaveLedgerKind {
@@ -694,6 +1059,14 @@ type LoginPayload {
   errors: [FieldError!]!
 }
 
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  UNDISCLOSED
+}
+
 type Me {
   user: User!
   permissions: [String!]!
@@ -740,6 +1113,12 @@ type MfaSetup {
   qrSvg: String!
 }
 
+type MonthValue {
+  """"2026-10"."""
+  month: String!
+  value: Decimal!
+}
+
 type Mutation {
   login(input: LoginInput!): LoginPayload!
 
@@ -757,6 +1136,9 @@ type Mutation {
   updateEmployee(input: UpdateEmployeeInput!): EmployeePayload!
   changeEmployeeJob(input: ChangeJobInput!): JobChangePayload!
   changeEmployeeCompensation(input: ChangeCompensationInput!): EmployeePayload!
+
+  """Set or clear an employee's potential bonus."""
+  setBonusTarget(input: BonusTargetInput!): EmployeePayload!
   changeEmployeeStatus(input: ChangeStatusInput!): EmployeePayload!
   archiveEmployee(id: ID!): EmployeePayload!
   requestLeave(input: RequestLeaveInput!): LeaveRequestPayload!
@@ -804,6 +1186,9 @@ type Mutation {
   """Withdraw an invitation that has not been accepted."""
   cancelInvite(id: ID!): MemberPayload!
 
+  """Email an employee's linked user a link to choose a new password."""
+  sendEmployeePasswordReset(employeeId: ID!): Boolean!
+
   """
   Email a set-password link if the address belongs to a member. Always answers true.
   """
@@ -834,12 +1219,61 @@ type Mutation {
   Exchange a sign-up hand-off token for a session on this company's address.
   """
   redeemWelcome(token: String!): LoginPayload!
+
+  """
+  Save the company's record layout. Every built-in tab and block must stay.
+  """
+  saveProfileLayout(config: JSON!): ProfileLayoutPayload!
+  saveCustomTable(input: SaveCustomTableInput!): CustomTablePayload!
+  saveTableRow(input: TableRowInput!): TableRowPayload!
+  deleteTableRow(id: ID!): Boolean!
+
+  """Add an HR note to an employee's record."""
+  addEmployeeNote(employeeId: ID!, body: String!): NotePayload!
+  deleteEmployeeNote(id: ID!): Boolean!
+
+  """Remove an employee's photo."""
+  removeEmployeePhoto(employeeId: ID!): Boolean!
+  saveBenefitPlan(input: SaveBenefitPlanInput!): BenefitPlanPayload!
+  saveBenefitEnrollment(input: SaveEnrollmentInput!): EnrollmentPayload!
+  deleteBenefitEnrollment(id: ID!): Boolean!
+  saveTaskTemplate(input: SaveTaskTemplateInput!): TaskTemplatePayload!
+
+  """
+  Copy the task templates onto an employee, with due dates from start_date.
+  """
+  startChecklist(employeeId: ID!, kind: ChecklistKind!, startDate: Date = null): ChecklistPayload!
+  addEmployeeTask(input: AddTaskInput!): TaskPayload!
+  setTaskDone(id: ID!, done: Boolean!): TaskPayload!
+  deleteEmployeeTask(id: ID!): Boolean!
+
+  """Post or edit a company announcement. It shows on everyone's home page."""
+  saveAnnouncement(input: AnnouncementInput!): AnnouncementPayload!
+  deleteAnnouncement(id: ID!): Boolean!
+
+  """Replace the company links, in the order given."""
+  saveCompanyLinks(links: [CompanyLinkInput!]!): CompanyLinksPayload!
+
+  """Save your home widgets: order and which are hidden."""
+  saveHomeLayout(widgets: JSON!): [HomeWidget!]!
 }
 
 input MyDetailsInput {
   preferredName: String
   personalEmail: String
   phone: String
+  workPhone: String
+  workPhoneExt: String
+  homePhone: String
+  linkedinUrl: String
+  twitter: String
+  facebook: String
+  addressLine1: String
+  addressLine2: String
+  city: String
+  state: String
+  postalCode: String
+  country: String
   firstName: String
   middleName: String
   lastName: String
@@ -860,9 +1294,31 @@ type MyDetailsPayload {
   errors: [FieldError!]!
 }
 
+type MyStuff {
+  trainings: Int!
+  certifications: Int!
+
+  """Expiring within 60 days or already expired."""
+  certificationsExpiring: Int!
+  benefits: Int!
+
+  """Your own onboarding or offboarding tasks still to do."""
+  openTasks: Int!
+}
+
 type NamedRef {
   id: ID!
   name: String!
+}
+
+type NewHire {
+  person: HomePerson!
+  hireDate: Date!
+}
+
+type NotePayload {
+  note: EmployeeNote
+  errors: [FieldError!]!
 }
 
 type Notification {
@@ -881,6 +1337,17 @@ type NotificationConnection {
   totalCount: Int!
 }
 
+type OnboardingSummary {
+  inProgress: Int!
+  withOverdue: Int!
+  startingSoon: Int!
+}
+
+enum OvertimeStatus {
+  EXEMPT
+  NON_EXEMPT
+}
+
 type PageInfo {
   hasNextPage: Boolean!
   endCursor: String
@@ -890,6 +1357,20 @@ enum PayFrequency {
   ANNUAL
   MONTHLY
   HOURLY
+}
+
+enum PaySchedule {
+  WEEKLY
+  BIWEEKLY
+  SEMIMONTHLY
+  MONTHLY
+}
+
+enum PayType {
+  SALARY
+  HOURLY
+  COMMISSION
+  CONTRACT
 }
 
 type PeopleStats {
@@ -904,6 +1385,20 @@ type PeopleStats {
 type PermissionInfo {
   code: String!
   description: String!
+}
+
+type PersonalDetails {
+  nationality: String!
+  linkedinUrl: String!
+  twitter: String!
+  facebook: String!
+  homePhone: String!
+  addressLine1: String!
+  addressLine2: String!
+  city: String!
+  state: String!
+  postalCode: String!
+  country: String!
 }
 
 type PrivateDetails {
@@ -931,6 +1426,20 @@ input PrivateDetailsInput {
 type PrivateDetailsPayload {
   details: PrivateDetails
   errors: [FieldError!]!
+}
+
+type ProfileLayoutPayload {
+  layout: ProfileLayoutType
+  errors: [FieldError!]!
+}
+
+type ProfileLayoutType {
+  tabs: [LayoutTab!]!
+
+  """
+  Standard fields not on the record, and archived custom fields and tables.
+  """
+  library: [LayoutItem!]!
 }
 
 type PublicHoliday {
@@ -968,6 +1477,11 @@ type Query {
 
   """Balances, requests and ledger. Without employeeId: your own."""
   employeeLeave(employeeId: ID = null): EmployeeLeave!
+
+  """
+  One leave type's balance history with a running balance, as BambooHR shows it.
+  """
+  leaveHistory(leaveTypeId: ID!, employeeId: ID = null, year: Int = null): LeaveHistory!
 
   """What a request would use, and what would be left, before it is made."""
   leaveQuote(leaveTypeId: ID!, startDate: Date!, endDate: Date!, halfDay: Boolean! = false, employeeId: ID = null): LeaveQuote!
@@ -1031,12 +1545,47 @@ type Query {
   Whether a web address is free, and the cleaned form of it. Null problem means free.
   """
   slugCheck(slug: String!): String
+
+  """How employee records are laid out for this company."""
+  profileLayout: ProfileLayoutType!
+  customTables(includeInactive: Boolean! = false): [CustomTable!]!
+
+  """The company's benefit plans. Inactive ones only for HR."""
+  benefitPlans(includeInactive: Boolean! = false): [BenefitPlan!]!
+
+  """
+  The plans an employee is on, for the employee and those who may see their record.
+  """
+  employeeBenefits(employeeId: ID!): [BenefitEnrollment!]!
+  checklist(employeeId: ID!, kind: ChecklistKind!): Checklist!
+  taskTemplates(kind: ChecklistKind = null): [TaskTemplate!]!
+
+  """Everything the home page shows that is not already a query of its own."""
+  home: Home!
+
+  """
+  Approved leave days per month for a leave type, last 12 months, within your scope.
+  """
+  timeOffUsed(leaveTypeId: ID!): [MonthValue!]!
+  announcements(limit: Int! = 10): [Announcement!]!
+  companyLinks: [CompanyLink!]!
+
+  """Your home widgets in order, including hidden ones."""
+  homeLayout: [HomeWidget!]!
 }
 
 type RecoveryCodesPayload {
   """Shown once. Each works one time."""
   codes: [String!]!
   errors: [FieldError!]!
+}
+
+type ReportCard {
+  person: HomePerson!
+
+  """Short lines such as "Out today", "Birthday Nov 22"."""
+  notes: [String!]!
+  outToday: Boolean!
 }
 
 type ReportColumn {
@@ -1103,6 +1652,18 @@ enum RoleScope {
   TEAM
 }
 
+input SaveBenefitPlanInput {
+  id: ID = null
+  name: String
+  kind: BenefitKind
+  provider: String
+  description: String
+  employeeRate: Decimal
+  employerRate: Decimal
+  basis: BenefitBasis
+  isActive: Boolean
+}
+
 input SaveCustomFieldInput {
   id: ID = null
   name: String
@@ -1112,6 +1673,23 @@ input SaveCustomFieldInput {
   hrOnly: Boolean
   position: Int
   isActive: Boolean
+
+  """For a new field: the tab and section to show it in."""
+  placeTab: String = null
+  placeSection: String = null
+}
+
+input SaveCustomTableInput {
+  id: ID = null
+  name: String
+  columns: [ColumnInput!]
+  hrOnly: Boolean
+  pay: Boolean
+  isActive: Boolean
+
+  """For a new table: the tab and section to show it in."""
+  placeTab: String = null
+  placeSection: String = null
 }
 
 input SaveDepartmentInput {
@@ -1133,6 +1711,19 @@ input SaveDocumentCategoryInput {
   isActive: Boolean
 }
 
+input SaveEnrollmentInput {
+  id: ID = null
+  employeeId: ID!
+  planId: ID!
+  status: BenefitEnrollmentStatus! = ENROLLED
+  startDate: Date = null
+  endDate: Date = null
+  memberNumber: String = ""
+  coverage: BenefitCoverage = null
+  dependants: Int! = 0
+  note: String = ""
+}
+
 input SaveGradeInput {
   id: ID = null
   name: String
@@ -1143,6 +1734,7 @@ input SaveGradeInput {
 input SaveJobTitleInput {
   id: ID = null
   name: String
+  description: String
   isActive: Boolean
 }
 
@@ -1203,6 +1795,17 @@ input SavePublicHolidayInput {
   locationId: ID
 }
 
+input SaveTaskTemplateInput {
+  id: ID = null
+  kind: ChecklistKind
+  title: String
+  description: String
+  category: String
+  assignee: TaskAssignee
+  dueOffset: Int
+  isActive: Boolean
+}
+
 input ScopeInput {
   legalEntityIds: [ID!]! = []
   locationIds: [ID!]! = []
@@ -1234,6 +1837,68 @@ input SignUpInput {
 type SignUpPayload {
   """Where to go next: the company's own address, signing the owner in."""
   url: String
+  errors: [FieldError!]!
+}
+
+type StatusRecord {
+  id: ID!
+  effectiveDate: Date!
+  status: EmployeeStatus!
+  comment: String!
+}
+
+type TableColumn {
+  key: String!
+  name: String!
+  type: CustomFieldType!
+  choices: [String!]!
+}
+
+type TableRow {
+  id: ID!
+  tableKey: String!
+  values: JSON!
+  createdAt: DateTime!
+}
+
+input TableRowInput {
+  id: ID = null
+  tableKey: String!
+  employeeId: ID!
+  values: JSON!
+}
+
+type TableRowPayload {
+  row: TableRow
+  errors: [FieldError!]!
+}
+
+enum TaskAssignee {
+  HR
+  MANAGER
+  EMPLOYEE
+  IT
+  FINANCE
+}
+
+type TaskPayload {
+  task: EmployeeTask
+  errors: [FieldError!]!
+}
+
+type TaskTemplate {
+  id: ID!
+  kind: ChecklistKind!
+  title: String!
+  description: String!
+  category: String!
+  assignee: TaskAssignee!
+  dueOffset: Int!
+  isActive: Boolean!
+}
+
+type TaskTemplatePayload {
+  template: TaskTemplate
   errors: [FieldError!]!
 }
 
@@ -1273,8 +1938,22 @@ input UpdateEmployeeInput {
   workEmail: String
   personalEmail: String
   phone: String
+  workPhone: String
+  workPhoneExt: String
+  homePhone: String
+  twitter: String
+  facebook: String
   dateOfBirth: Date
   gender: Gender
+  maritalStatus: MaritalStatus
+  nationality: String
+  linkedinUrl: String
+  addressLine1: String
+  addressLine2: String
+  city: String
+  state: String
+  postalCode: String
+  country: String
 }
 
 input UpdateMemberInput {

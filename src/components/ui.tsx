@@ -226,6 +226,26 @@ export function Card({
   );
 }
 
+/**
+ * How a self-contained card draws its outer frame. The employee record passes its own, so
+ * a card sits inside a section of the company's layout; elsewhere a plain Card is used.
+ */
+export type Frame = (props: { actions?: ReactNode; description?: ReactNode; flush?: boolean; children: ReactNode }) => ReactNode;
+
+export function cardFrame(title: ReactNode): Frame {
+  return function drawCard({ actions, description, flush, children }) {
+    return <Card title={title} description={description} actions={actions} flush={flush}>{children}</Card>;
+  };
+}
+
+/**
+ * Draws a Frame. A stable component that calls the frame as a function, so swapping frames
+ * never remounts the card inside (which would drop its open dialogs and other state).
+ */
+export function FrameSlot({ frame, ...props }: Parameters<Frame>[0] & { frame: Frame }) {
+  return <>{frame(props)}</>;
+}
+
 export function PageHeader({
   title,
   subtitle,
@@ -377,7 +397,7 @@ export function ErrorNote({ error }: { error?: { message: string } | string | nu
   return <Notice tone="error">{typeof error === "string" ? error : error.message}</Notice>;
 }
 
-type BadgeTone = "neutral" | "good" | "warn" | "bad" | "brand";
+export type BadgeTone = "neutral" | "good" | "warn" | "bad" | "brand";
 
 const badgeTones: Record<BadgeTone, string> = {
   neutral: "bg-subtle text-muted ring-line",
@@ -413,7 +433,7 @@ export const statusTone: Record<string, BadgeTone> = {
   TERMINATED: "bad",
 };
 
-const statusLabel: Record<string, string> = {
+export const statusLabel: Record<string, string> = {
   ACTIVE: "Active",
   PROBATION: "On probation",
   ON_LEAVE: "On leave",
@@ -429,13 +449,19 @@ export function StatusBadge({ status }: { status: string }) {
   );
 }
 
-export function Avatar({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
+export function Avatar({ name, size = "md", src }: { name: string; size?: "sm" | "md" | "lg"; src?: string | null }) {
+  const box = size === "lg" ? "h-14 w-14" : size === "sm" ? "h-6 w-6" : "h-8 w-8";
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt="" className={cx(box, "flex-none rounded-full object-cover ring-1 ring-line")} />;
+  }
   return (
     <span
       aria-hidden
       className={cx(
         "grid flex-none place-items-center rounded-full bg-subtle font-semibold text-muted ring-1 ring-line",
-        size === "lg" ? "h-14 w-14 font-display text-lg text-ink" : "h-8 w-8 text-xs",
+        box,
+        size === "lg" ? "font-display text-lg text-ink" : size === "sm" ? "text-[10px]" : "text-xs",
       )}
     >
       {initials(name)}

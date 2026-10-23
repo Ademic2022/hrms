@@ -5,12 +5,12 @@ import { useMutation, useQuery } from "urql";
 
 import { Button, Dialog, ErrorNote, Field, Input, Notice } from "@/components/ui";
 import { graphql } from "@/gql";
-import type { EmployeeQuery } from "@/gql/graphql";
+import type { EmployeeProfileQuery } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { reportErrors } from "@/lib/forms";
 
-type Employee = EmployeeQuery["employee"];
+type Employee = EmployeeProfileQuery["employee"];
 
 export const MyChangeRequestsDocument = graphql(`
   query MyChangeRequests {

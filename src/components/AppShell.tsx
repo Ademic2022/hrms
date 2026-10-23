@@ -136,6 +136,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         { href: "/organization", label: "Organization", show: can(PERMS.orgManage), icon: IconSitemap },
         { href: "/leave/settings", label: "Leave setup", show: can(PERMS.leaveManage), icon: IconPencilGrid },
         { href: "/documents", label: "Documents", show: can(PERMS.documentsManage), icon: IconFile },
+        { href: "/settings/benefits", label: "Benefits", show: can(PERMS.employeesManage), icon: IconShield },
+        { href: "/settings/checklists", label: "Onboarding", show: can(PERMS.employeesManage), icon: IconCheck },
         { href: "/settings/users", label: "Users and access", show: can(PERMS.usersManage), icon: IconShield },
         { href: "/settings/company", label: "Company settings", show: can(PERMS.tenantManage), icon: IconSettings },
       ],

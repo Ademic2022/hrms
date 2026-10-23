@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useDeferredValue, useMemo, useState } from "react";
 import { useQuery } from "urql";
 
 import { IconChevronDown, IconChevronRight, IconUsers } from "@/components/icons";
@@ -69,10 +70,11 @@ function TreeNode({ p, tree, depth, linkFor }: {
   );
 }
 
-export default function DirectoryPage() {
+function Directory() {
   const { can } = useSession();
   const [{ data, error }] = useQuery({ query: OrgChartDocument });
-  const [tab, setTab] = useState<"people" | "chart">("people");
+  const params = useSearchParams();
+  const [tab, setTab] = useState<"people" | "chart">(params.get("view") === "chart" ? "chart" : "people");
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("");
   const query = useDeferredValue(search.trim().toLowerCase());
@@ -137,5 +139,13 @@ export default function DirectoryPage() {
         </Card>
       )}
     </>
+  );
+}
+
+export default function DirectoryPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Directory />
+    </Suspense>
   );
 }

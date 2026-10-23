@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "urql";
 
 import { IconDownload, IconFile, IconUpload } from "@/components/icons";
-import { ActionDialog, Badge, Button, Card, Dialog, ErrorNote, Field, Input, Select, Spinner, Textarea, cx } from "@/components/ui";
+import { ActionDialog, Badge, Button, Dialog, cardFrame, FrameSlot, type Frame, ErrorNote, Field, Input, Select, Spinner, Textarea, cx } from "@/components/ui";
 import { graphql } from "@/gql";
 import type { EmployeeDocumentsQuery } from "@/gql/graphql";
 import { errorMessage, postForm } from "@/lib/api";
@@ -233,7 +233,9 @@ function EditDialog({ doc, onClose, onSaved }: { doc: DocumentRow; onClose: () =
 /* -------------------------------------------------------------------- Card */
 
 /** The documents on an employee's profile. Renders nothing for viewers who may see none. */
-export function DocumentsCard({ employeeId, employeeName, canManage }: { employeeId: string; employeeName: string; canManage: boolean }) {
+export function DocumentsCard({ employeeId, employeeName, canManage, frame = cardFrame("Documents") }: {
+  employeeId: string; employeeName: string; canManage: boolean; frame?: Frame;
+}) {
   const [{ data, error }, reload] = useQuery({ query: EmployeeDocumentsDocument, variables: { employeeId } });
   const [open, setOpen] = useState<"upload" | DocumentRow | null>(null);
   const [removing, setRemoving] = useState<DocumentRow | null>(null);
@@ -252,7 +254,7 @@ export function DocumentsCard({ employeeId, employeeName, canManage }: { employe
 
   return (
     <div id="documents" ref={card} className="scroll-mt-20">
-      <Card flush title="Documents" description={docs.length ? `${docs.length} on file` : undefined}
+      <FrameSlot frame={frame} flush description={docs.length ? `${docs.length} on file` : undefined}
         actions={canManage ? <Button size="sm" variant="secondary" icon={<IconUpload size={15} />} onClick={() => setOpen("upload")}>Upload</Button> : undefined}>
         {downloadError && <div className="p-4 pb-0"><ErrorNote error={downloadError} /></div>}
         {docs.length ? (
@@ -284,7 +286,7 @@ export function DocumentsCard({ employeeId, employeeName, canManage }: { employe
         ) : (
           <p className="px-5 py-4 text-sm text-muted">No documents yet. Upload contracts, IDs, certificates and permits here.</p>
         )}
-      </Card>
+      </FrameSlot>
 
       {open === "upload" && (
         <UploadDialog employeeId={employeeId} employeeName={employeeName} onClose={() => setOpen(null)}

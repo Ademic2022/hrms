@@ -4,14 +4,14 @@ import { useState, type FormEvent } from "react";
 import { useMutation } from "urql";
 
 import { IconEye, IconLock, IconPlus } from "@/components/icons";
-import { ActionDialog, Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, Input, Select, Textarea } from "@/components/ui";
+import { ActionDialog, Badge, Button, Card, Checkbox, cardFrame, FrameSlot, type Frame, Dialog, ErrorNote, Field, Input, Select, Textarea } from "@/components/ui";
 import { graphql } from "@/gql";
-import type { EmployeeQuery } from "@/gql/graphql";
+import type { EmployeeProfileQuery } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { reportErrors } from "@/lib/forms";
 
-type Employee = EmployeeQuery["employee"];
+type Employee = EmployeeProfileQuery["employee"];
 type Contact = Employee["emergencyContacts"][number];
 type CustomValue = Employee["customValues"][number];
 
@@ -35,7 +35,10 @@ function ContactDialog({ employeeId, contact, onClose, onSaved }: {
   const [, save] = useMutation(SaveContactDocument);
   const [v, setV] = useState({
     name: contact?.name ?? "", relationship: contact?.relationship ?? "", phone: contact?.phone ?? "",
-    email: contact?.email ?? "", isPrimary: contact?.isPrimary ?? false,
+    workPhone: contact?.workPhone ?? "", workPhoneExt: contact?.workPhoneExt ?? "", homePhone: contact?.homePhone ?? "",
+    email: contact?.email ?? "", addressLine1: contact?.addressLine1 ?? "", addressLine2: contact?.addressLine2 ?? "",
+    city: contact?.city ?? "", state: contact?.state ?? "", postalCode: contact?.postalCode ?? "", country: contact?.country ?? "",
+    isPrimary: contact?.isPrimary ?? false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string>();
@@ -47,21 +50,21 @@ function ContactDialog({ employeeId, contact, onClose, onSaved }: {
     setFormError(undefined);
     const missing: Record<string, string> = {};
     if (!v.name.trim()) missing.name = "Enter a name.";
-    if (!v.phone.trim()) missing.phone = "Enter a phone number.";
+    if (!v.phone.trim() && !v.workPhone.trim() && !v.homePhone.trim()) missing.phone = "Enter at least one phone number.";
     setErrors(missing);
     if (Object.keys(missing).length) return;
     setBusy(true);
     const result = await save({ input: { id: contact?.id ?? null, employeeId, ...v } });
     setBusy(false);
     const found: Record<string, string> = {};
-    const failed = reportErrors(result, result.data?.saveEmergencyContact.errors, ["name", "relationship", "phone", "email"] as const,
+    const failed = reportErrors(result, result.data?.saveEmergencyContact.errors, ["name", "relationship", "phone", "workPhone", "homePhone", "email", "postalCode"] as const,
       (f, m) => { found[f] = m; }, setFormError);
     setErrors(found);
     if (!failed) onSaved();
   }
 
   return (
-    <Dialog open onClose={onClose} title={contact ? "Edit emergency contact" : "Add emergency contact"}
+    <Dialog open wide onClose={onClose} title={contact ? "Edit emergency contact" : "Add emergency contact"}
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
         <Button type="submit" form="contact-form" busy={busy}>Save</Button>
@@ -71,16 +74,32 @@ function ContactDialog({ employeeId, contact, onClose, onSaved }: {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" error={errors.name}><Input value={v.name} aria-invalid={!!errors.name} onChange={(e) => set("name", e.target.value)} /></Field>
           <Field label="Relationship" optional error={errors.relationship}><Input value={v.relationship} placeholder="Spouse" onChange={(e) => set("relationship", e.target.value)} /></Field>
-          <Field label="Phone" error={errors.phone}><Input type="tel" value={v.phone} aria-invalid={!!errors.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
+          <Field label="Mobile phone" error={errors.phone}><Input type="tel" value={v.phone} aria-invalid={!!errors.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
+          <Field label="Home phone" optional error={errors.homePhone}><Input type="tel" value={v.homePhone} onChange={(e) => set("homePhone", e.target.value)} /></Field>
+          <div className="grid grid-cols-[1fr_90px] gap-3">
+            <Field label="Work phone" optional error={errors.workPhone}><Input type="tel" value={v.workPhone} onChange={(e) => set("workPhone", e.target.value)} /></Field>
+            <Field label="Ext" optional><Input value={v.workPhoneExt} onChange={(e) => set("workPhoneExt", e.target.value)} /></Field>
+          </div>
           <Field label="Email" optional error={errors.email}><Input type="email" value={v.email} aria-invalid={!!errors.email} onChange={(e) => set("email", e.target.value)} /></Field>
         </div>
+        <fieldset className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+          <legend className="sr-only">Address</legend>
+          <Field label="Address line 1" optional><Input value={v.addressLine1} onChange={(e) => set("addressLine1", e.target.value)} /></Field>
+          <Field label="Address line 2" optional><Input value={v.addressLine2} onChange={(e) => set("addressLine2", e.target.value)} /></Field>
+          <Field label="City" optional><Input value={v.city} onChange={(e) => set("city", e.target.value)} /></Field>
+          <Field label="State" optional><Input value={v.state} onChange={(e) => set("state", e.target.value)} /></Field>
+          <Field label="Postcode" optional error={errors.postalCode}><Input value={v.postalCode} onChange={(e) => set("postalCode", e.target.value)} /></Field>
+          <Field label="Country" optional><Input value={v.country} onChange={(e) => set("country", e.target.value)} /></Field>
+        </fieldset>
         <Checkbox label="Call this person first" checked={v.isPrimary} onChange={(c) => set("isPrimary", c)} />
       </form>
     </Dialog>
   );
 }
 
-export function EmergencyContactsCard({ employee, canEdit, onChanged }: { employee: Employee; canEdit: boolean; onChanged: () => void }) {
+export function EmergencyContactsCard({ employee, canEdit, onChanged, frame = cardFrame("Emergency contacts") }: {
+  employee: Employee; canEdit: boolean; onChanged: () => void; frame?: Frame;
+}) {
   const [editing, setEditing] = useState<{ contact: Contact | null } | null>(null);
   const [removing, setRemoving] = useState<Contact | null>(null);
   const [, remove] = useMutation(DeleteContactDocument);
@@ -88,15 +107,29 @@ export function EmergencyContactsCard({ employee, canEdit, onChanged }: { employ
   if (!contacts.length && !canEdit) return null;
 
   return (
-    <Card title="Emergency contacts" flush
+    <FrameSlot frame={frame} flush
       actions={canEdit ? <Button size="sm" variant="ghost" icon={<IconPlus size={14} />} className="-my-1 -mr-2" onClick={() => setEditing({ contact: null })}>Add</Button> : undefined}>
       {contacts.length ? (
         <ul className="divide-y divide-line">
           {contacts.map((c) => (
-            <li key={c.id} className="flex items-start justify-between gap-3 px-5 py-3 text-sm">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 font-medium text-ink">{c.name}{c.isPrimary && <Badge tone="brand">First to call</Badge>}</div>
-                <div className="text-xs text-muted">{[c.relationship, c.phone, c.email].filter(Boolean).join(" · ")}</div>
+            <li key={c.id} className="flex items-start justify-between gap-3 px-5 py-4 text-sm sm:px-6">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 text-[15px] font-medium text-ink">
+                  {c.name}{c.relationship && <span className="font-normal text-muted">{c.relationship}</span>}
+                  {c.isPrimary && <Badge tone="brand">Primary contact</Badge>}
+                </div>
+                <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {([
+                    ["Mobile phone", c.phone], ["Work phone", c.workPhone && `${c.workPhone}${c.workPhoneExt ? ` ext. ${c.workPhoneExt}` : ""}`],
+                    ["Home phone", c.homePhone], ["Email", c.email],
+                    ["Address", [c.addressLine1, c.addressLine2, c.city, c.state, c.postalCode, c.country].filter(Boolean).join(", ")],
+                  ] as const).filter(([, value]) => value).map(([label, value]) => (
+                    <div key={label} className={label === "Address" ? "sm:col-span-2" : undefined}>
+                      <dt className="text-[13px] text-muted">{label}</dt>
+                      <dd className="mt-0.5 break-words text-ink">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
               {canEdit && (
                 <div className="flex flex-none">
@@ -122,7 +155,7 @@ export function EmergencyContactsCard({ employee, canEdit, onChanged }: { employ
           if (result.error) throw new Error(errorMessage(result.error));
           onChanged();
         }} />
-    </Card>
+    </FrameSlot>
   );
 }
 
@@ -195,7 +228,12 @@ function PrivateDialog({ employeeId, current, onClose, onSaved }: {
   );
 }
 
-export function PrivateDetailsCard({ employee, canEdit, onChanged }: { employee: Employee; canEdit: boolean; onChanged: () => void }) {
+const lockedFrame = cardFrame(<span className="flex items-center gap-2"><IconLock size={15} className="text-muted" />Bank and ID details</span>);
+
+export function PrivateDetailsCard({ employee, canEdit, onChanged, frame }: {
+  employee: Employee; canEdit: boolean; onChanged: () => void; frame?: Frame;
+}) {
+  const shell = frame ?? lockedFrame;
   const [, reveal] = useMutation(RevealDocument);
   const [shown, setShown] = useState<Private | null>(null);
   const [editing, setEditing] = useState(false);
@@ -206,7 +244,7 @@ export function PrivateDetailsCard({ employee, canEdit, onChanged }: { employee:
   const empty = PRIVATE_LABELS.every(([k]) => !details[k]);
 
   return (
-    <Card title={<span className="flex items-center gap-2"><IconLock size={15} className="text-muted" />Bank and ID details</span>}
+    <FrameSlot frame={shell}
       actions={<div className="-my-1 -mr-2 flex">
         {!empty && !shown && (
           <Button size="sm" variant="ghost" icon={<IconEye size={14} />} onClick={async () => {
@@ -237,7 +275,7 @@ export function PrivateDetailsCard({ employee, canEdit, onChanged }: { employee:
         <PrivateDialog employeeId={employee.id} current={details} onClose={() => setEditing(false)}
           onSaved={() => { setEditing(false); setShown(null); onChanged(); }} />
       )}
-    </Card>
+    </FrameSlot>
   );
 }
 
