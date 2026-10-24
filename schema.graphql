@@ -690,6 +690,20 @@ type FieldError {
   message: String!
 }
 
+type FilterDimension {
+  """
+  "department", "location", "legalEntity", "employmentType", "age" or "service".
+  """
+  key: String!
+  label: String!
+  options: [FilterOption!]!
+}
+
+type FilterOption {
+  value: String!
+  label: String!
+}
+
 enum Gender {
   FEMALE
   MALE
@@ -1068,6 +1082,19 @@ type Location {
   legalEntity: LegalEntity!
 }
 
+type LocationData {
+  current: [LabelValue!]!
+  total: Int!
+
+  """People at each location at each month end, last 12 months."""
+  history: [LocationMonth!]!
+}
+
+type LocationMonth {
+  month: String!
+  values: [LabelValue!]!
+}
+
 type LocationPayload {
   location: Location
   errors: [FieldError!]!
@@ -1407,6 +1434,23 @@ enum PayFrequency {
   HOURLY
 }
 
+type PayRaiseData {
+  count: Int!
+  people: [PayRaisePerson!]!
+}
+
+type PayRaisePerson {
+  person: HomePerson!
+  hireDate: Date!
+
+  """The last pay change after the starting pay, if any."""
+  lastRaise: Date
+
+  """How much that change added."""
+  amount: Decimal
+  currency: String
+}
+
 enum PaySchedule {
   WEEKLY
   BIWEEKLY
@@ -1419,6 +1463,20 @@ enum PayType {
   HOURLY
   COMMISSION
   CONTRACT
+}
+
+type PendingLeave {
+  id: ID!
+  person: HomePerson!
+  approverName: String
+  startDate: Date!
+  endDate: Date!
+  days: Decimal!
+  leaveType: String!
+  submittedAt: DateTime!
+
+  """Starts within 7 days."""
+  urgent: Boolean!
 }
 
 type PeopleStats {
@@ -1619,7 +1677,21 @@ type Query {
   """
   Approved leave days per month for a leave type, last 12 months, within your scope.
   """
-  timeOffUsed(leaveTypeId: ID!): [MonthValue!]!
+  timeOffUsed(leaveTypeId: ID!, filter: WidgetFilter = null): TimeOffUsedData!
+
+  """The dimensions a home widget can be narrowed by, with their choices."""
+  widgetFilters: [FilterDimension!]!
+
+  """Leave waiting for a decision, within your scope, soonest first."""
+  pendingTimeOff(filter: WidgetFilter = null): [PendingLeave!]!
+
+  """Where people work now, and month by month over the last 12 months."""
+  locationBreakdown(filter: WidgetFilter = null): LocationData!
+
+  """
+  People with no pay change for 12 months or more. Needs compensation.view.
+  """
+  withoutPayRaise(filter: WidgetFilter = null): PayRaiseData!
   announcements(limit: Int! = 10): [Announcement!]!
   companyLinks: [CompanyLink!]!
 
@@ -1641,13 +1713,31 @@ type ReportCard {
 
   """Short lines such as "Out today", "Birthday Nov 22"."""
   notes: [String!]!
+
+  """What is coming up for them, soonest first."""
+  events: [ReportEvent!]!
   outToday: Boolean!
+  department: String
+  location: String
+  timezone: String
+  workEmail: String!
+  workPhone: String!
+  workPhoneExt: String!
 }
 
 type ReportColumn {
   key: String!
   label: String!
   kind: String!
+}
+
+type ReportEvent {
+  """
+  "out", "pending", "holiday", "birthday", "anniversary" or "onboarding".
+  """
+  kind: String!
+  label: String!
+  date: Date
 }
 
 type ReportFigure {
@@ -1988,6 +2078,17 @@ enum TerminationKind {
   OTHER
 }
 
+type TimeOffUsedData {
+  months: [MonthValue!]!
+
+  """The same months a year earlier."""
+  previousYear: [MonthValue!]!
+  total: Decimal!
+
+  """People who took this leave in the period."""
+  people: Int!
+}
+
 input UpdateDocumentInput {
   id: ID!
   title: String
@@ -2037,4 +2138,14 @@ type User {
   firstName: String!
   lastName: String!
   fullName: String!
+}
+
+"""Narrow a home widget to some people. Empty lists mean no limit."""
+input WidgetFilter {
+  departmentIds: [ID!]! = []
+  locationIds: [ID!]! = []
+  legalEntityIds: [ID!]! = []
+  employmentTypes: [String!]! = []
+  ageBands: [String!]! = []
+  serviceBands: [String!]! = []
 }

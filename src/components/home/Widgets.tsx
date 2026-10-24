@@ -4,7 +4,7 @@ import {
   faArrowsRotate, faAward, faBoxOpen, faBriefcase, faBuilding, faBullhorn, faCakeCandles, faCalculator, faCalendarDay,
   faCalendarDays, faCalendarPlus, faCertificate, faChartSimple, faChevronRight, faClipboardCheck, faFaceFrown,
   faGraduationCap, faHandsClapping, faHeartPulse, faIdCard, faLink, faListCheck, faLocationDot, faPeopleGroup, faPen,
-  faPlaneDeparture, faSitemap, faStopwatch, faThumbtack, faUmbrellaBeach, faUserCheck, faUserMinus, faUserPen, faUserPlus,
+  faPlaneDeparture, faSitemap, faThumbtack, faUmbrellaBeach, faUserCheck, faUserMinus, faUserPen, faUserPlus,
   faUsers, faVenusMars, faXmark, type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "urql";
 
-import { BarList, ChartTable, DivergingStrip, Legend, MonthColumns, MonthLine, SERIES, TipRow, type Column, type Series } from "@/components/home/Charts";
+import { BarList, ChartTable, DivergingStrip, Legend, MonthColumns, SERIES, TipRow, type Column, type Series } from "@/components/home/Charts";
 import type { LeaveBalanceRow } from "@/components/leave/Leave";
 import { ActionDialog, Button, Checkbox, Dialog, ErrorNote, Field, IconButton, Input, Select, Textarea, cx } from "@/components/ui";
 import { graphql } from "@/gql";
@@ -68,27 +68,29 @@ export function Photo({ name, src, size = 40, faded, className }: { name: string
 }
 
 /** A home widget: a tinted header bar with a brand icon and title, then the content. */
-export function Widget({ title, icon, actions, children, className, flush, bodyClassName }: {
+export function Widget({ title, icon, actions, tools, children, className, flush, bodyClassName }: {
   title: string; icon: IconDefinition; actions?: ReactNode; children: ReactNode; className?: string; flush?: boolean; bodyClassName?: string;
+  /** Filter and expand buttons: shown on hover, as on BambooHR (WidgetTools keeps them up while in use). */
+  tools?: ReactNode;
 }) {
   return (
-    <section className={cx("flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm", className)}>
+    <section className={cx("group/widget flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm", className)}>
       <header className="flex min-h-[56px] items-center justify-between gap-3 border-b border-line bg-subtle/60 px-4">
         <h2 className="flex min-w-0 items-center gap-2.5 text-[18px] font-semibold text-brand-ink">
           <FontAwesomeIcon icon={icon} className="text-[16px]" fixedWidth />
           <span className="truncate">{title}</span>
         </h2>
-        {actions && <div className="flex flex-none items-center gap-3 text-sm">{actions}</div>}
+        {(actions || tools) && <div className="flex flex-none items-center gap-3 text-sm">{actions}{tools}</div>}
       </header>
       <div className={cx("flex flex-1 flex-col", flush ? "" : "p-4", bodyClassName)}>{children}</div>
     </section>
   );
 }
 
-const Empty = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted">{children}</p>;
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-const monthName = (month: string) => new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).toLocaleDateString(undefined, { month: "short" });
-const longDate = (iso: string, opts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric" }) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, opts);
+export const Empty = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted">{children}</p>;
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+export const monthName = (month: string) => new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).toLocaleDateString(undefined, { month: "short" });
+export const longDate = (iso: string, opts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric" }) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, opts);
 
 /* ------------------------------------------------------------------ Time off */
 
@@ -237,7 +239,7 @@ type FeedItem = {
   avatar?: { name: string; src?: string | null }; icon?: IconDefinition; actions?: ReactNode;
 };
 
-function ago(iso: string) {
+export function ago(iso: string) {
   const days = Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000);
   if (days < 0) return days === -1 ? "Tomorrow" : `In ${-days} days`;
   if (days === 0) return "Today";
@@ -848,49 +850,9 @@ export function WelcomeWidget({ hires, company }: { hires: HomeData["home"]["new
   );
 }
 
-/* -------------------------------------------------------------- Time off used */
-
-const TimeOffUsedDocument = graphql(`
-  query HomeTimeOffUsed($leaveTypeId: ID!) {
-    timeOffUsed(leaveTypeId: $leaveTypeId) { month value }
-  }
-`);
-
-const LeaveTypesDocument = graphql(`
-  query HomeLeaveTypes {
-    leaveTypes { id name }
-  }
-`);
-
-export function TimeOffUsedWidget() {
-  const [{ data: types }] = useQuery({ query: LeaveTypesDocument });
-  const [chosen, setChosen] = useState<string>();
-  const [table, setTable] = useState(false);
-  const typeId = chosen ?? types?.leaveTypes[0]?.id;
-  const [{ data }] = useQuery({ query: TimeOffUsedDocument, variables: { leaveTypeId: typeId ?? "" }, pause: !typeId });
-  const series: Series = { key: "days", label: "Days", color: SERIES[0] };
-  const columns: Column[] = (data?.timeOffUsed ?? []).map((m) => ({ month: m.month, label: monthName(m.month), year: Number(m.month.slice(0, 4)), values: { days: Number(m.value) } }));
-  return (
-    <Widget title="Time off used" icon={faCalendarDays}>
-      {types && types.leaveTypes.length > 0 && (
-        <Select aria-label="Leave type" value={typeId} onChange={(e) => setChosen(e.target.value)}>
-          {types.leaveTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </Select>
-      )}
-      <div className="mt-4 flex-1">
-        {!data ? <div className="h-[150px]" /> : table ? <ChartTable columns={columns} series={[series]} /> : <MonthLine columns={columns} series={series} unit="days taken" />}
-      </div>
-      <div className="mt-2 flex justify-between text-xs text-muted">
-        <span>Approved days, last 12 months</span>
-        <button type="button" onClick={() => setTable(!table)} className="hover:text-ink">{table ? "Show chart" : "Show table"}</button>
-      </div>
-    </Widget>
-  );
-}
-
 /* ------------------------------------------------------------- HR summary cards */
 
-function BigFigure({ icon, value, label, sub, href }: { icon: IconDefinition; value: number; label: string; sub?: string; href?: string }) {
+export function BigFigure({ icon, value, label, sub, href }: { icon: IconDefinition; value: number; label: string; sub?: string; href?: string }) {
   const body = (
     <span className="flex flex-col items-center py-3 text-center">
       <span className="flex items-center gap-3">
@@ -902,25 +864,6 @@ function BigFigure({ icon, value, label, sub, href }: { icon: IconDefinition; va
     </span>
   );
   return href ? <Link href={href} className="block rounded-xl hover:bg-subtle">{body}</Link> : body;
-}
-
-export function TimeOffRequestsWidget({ insights }: { insights: Insights }) {
-  return (
-    <Widget title="Time off requests" icon={faCalendarDays} bodyClassName="justify-center">
-      <div className="divide-y divide-line">
-        <BigFigure icon={faStopwatch} value={insights.pendingUrgent} label="Urgent requests" sub="Starting within 7 days" href="/leave/approvals" />
-        <BigFigure icon={faCalendarDays} value={insights.pendingOther} label="Other requests" href="/leave/approvals" />
-      </div>
-    </Widget>
-  );
-}
-
-export function PayRaiseWidget({ count }: { count: number }) {
-  return (
-    <Widget title="People without a pay raise" icon={faFaceFrown} bodyClassName="justify-center">
-      <BigFigure icon={faFaceFrown} value={count} label="Without pay raise" sub="for 12+ months" href="/reports/pay" />
-    </Widget>
-  );
 }
 
 function Row({ title, sub }: { title: string; sub?: string }) {

@@ -221,46 +221,64 @@ export function DivergingStrip({ columns, up, down, height = 76 }: { columns: Co
   );
 }
 
-/** A line over the months with a start dot and an end ring, the latest value labelled. */
-export function MonthLine({ columns, series, unit, height = 150 }: { columns: Column[]; series: Series; unit: string; height?: number }) {
+/**
+ * A line over the months with a start dot and an end ring, the latest value labelled. `compare`
+ * adds a second series (last year) in the next slot, with a legend; `axis` adds value ticks.
+ */
+export function MonthLine({ columns, series, unit, height = 150, compare, axis, tickSuffix = "" }: {
+  columns: Column[]; series: Series; unit: string; height?: number; compare?: Series; axis?: boolean; tickSuffix?: string;
+}) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const values = columns.map((c) => c.values[series.key] ?? 0);
-  const { top } = scale(Math.max(...values, 0));
-  const pad = { top: 14, right: 34, bottom: 22, left: 10 };
+  const others = compare ? columns.map((c) => c.values[compare.key] ?? 0) : [];
+  const { top, ticks } = scale(Math.max(...values, ...others, 0));
+  const pad = { top: 14, right: 34, bottom: 22, left: axis ? 40 : 10 };
   const plotW = Math.max(0, width - pad.left - pad.right);
   const plotH = height - pad.top - pad.bottom;
   const step = plotW / Math.max(1, columns.length - 1);
-  const at = (i: number) => [pad.left + step * i, pad.top + plotH - (values[i] / top) * plotH] as const;
+  const yOf = (v: number) => pad.top + plotH - (v / top) * plotH;
+  const at = (i: number, list = values) => [pad.left + step * i, yOf(list[i])] as const;
   const last = columns.length - 1;
-  const path = values.map((_, i) => `${i ? "L" : "M"}${at(i)[0]},${at(i)[1]}`).join(" ");
+  const pathOf = (list: number[]) => list.map((_, i) => `${i ? "L" : "M"}${at(i, list)[0]},${at(i, list)[1]}`).join(" ");
   return (
-    <div ref={ref} className="relative" onPointerLeave={() => setHover(null)}
-      onPointerMove={(ev) => {
-        const box = ev.currentTarget.getBoundingClientRect();
-        setHover(Math.max(0, Math.min(last, Math.round((ev.clientX - box.left - pad.left) / step))));
-      }}>
-      {width > 0 && columns.length > 0 && (
-        <svg width={width} height={height} className="block" role="img" aria-label="Chart; values are in the table view">
-          <line x1={pad.left} x2={width - pad.right} y1={pad.top + plotH} y2={pad.top + plotH} stroke="var(--grid)" strokeWidth={1} shapeRendering="crispEdges" />
-          <path d={path} fill="none" stroke={series.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-          {hover !== null && <line x1={at(hover)[0]} x2={at(hover)[0]} y1={pad.top} y2={pad.top + plotH} stroke="var(--axis)" strokeWidth={1} />}
-          <circle cx={at(0)[0]} cy={at(0)[1]} r={4} fill={series.color} stroke="var(--surface)" strokeWidth={2} />
-          <circle cx={at(hover ?? last)[0]} cy={at(hover ?? last)[1]} r={5} fill="var(--surface)" stroke={series.color} strokeWidth={2.5} />
-          <text x={at(last)[0] + 9} y={at(last)[1]} dy="0.32em" className="fill-[var(--ink)] text-[12px] font-semibold">{compact(values[last])}</text>
-          {[0, Math.floor(last / 2), last].map((i) => (
-            <text key={i} x={at(i)[0]} y={height - 6} textAnchor={i === 0 ? "start" : i === last ? "end" : "middle"} className="fill-[var(--muted)] text-[11px] uppercase">
-              {columns[i].label}
-            </text>
-          ))}
-        </svg>
-      )}
-      {hover !== null && width > 0 && (
-        <Tooltip x={at(hover)[0]} y={at(hover)[1]} width={width}>
-          <span className="mb-1 block font-medium text-ink">{columns[hover].label} {columns[hover].year}</span>
-          <TipRow color={series.color} value={Number(values[hover].toFixed(1))} label={unit} />
-        </Tooltip>
-      )}
+    <div>
+      <div ref={ref} className="relative" onPointerLeave={() => setHover(null)}
+        onPointerMove={(ev) => {
+          const box = ev.currentTarget.getBoundingClientRect();
+          setHover(Math.max(0, Math.min(last, Math.round((ev.clientX - box.left - pad.left) / step))));
+        }}>
+        {width > 0 && columns.length > 0 && (
+          <svg width={width} height={height} className="block" role="img" aria-label="Chart; values are in the table view">
+            {(axis ? ticks : [0]).map((t) => (
+              <g key={t}>
+                <line x1={pad.left} x2={width - pad.right} y1={yOf(t)} y2={yOf(t)} stroke={t === 0 ? "var(--axis)" : "var(--grid)"} strokeWidth={1} shapeRendering="crispEdges" />
+                {axis && <text x={pad.left - 8} y={yOf(t)} dy="0.32em" textAnchor="end" className="fill-[var(--muted)] text-[11px] tabular-nums">{compact(t)}{tickSuffix}</text>}
+              </g>
+            ))}
+            {compare && <path d={pathOf(others)} fill="none" stroke={compare.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />}
+            <path d={pathOf(values)} fill="none" stroke={series.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            {hover !== null && <line x1={at(hover)[0]} x2={at(hover)[0]} y1={pad.top} y2={pad.top + plotH} stroke="var(--axis)" strokeWidth={1} />}
+            <circle cx={at(0)[0]} cy={at(0)[1]} r={4} fill={series.color} stroke="var(--surface)" strokeWidth={2} />
+            <circle cx={at(hover ?? last)[0]} cy={at(hover ?? last)[1]} r={5} fill="var(--surface)" stroke={series.color} strokeWidth={2.5} />
+            <text x={at(last)[0] + 9} y={at(last)[1]} dy="0.32em" className="fill-[var(--ink)] text-[12px] font-semibold">{compact(values[last])}</text>
+            {(axis ? columns.map((_, i) => i) : [0, Math.floor(last / 2), last]).map((i) => (
+              <text key={i} x={at(i)[0]} y={height - 6} textAnchor={axis ? "middle" : i === 0 ? "start" : i === last ? "end" : "middle"}
+                className="fill-[var(--muted)] text-[11px] uppercase">
+                {columns[i].label}
+              </text>
+            ))}
+          </svg>
+        )}
+        {hover !== null && width > 0 && (
+          <Tooltip x={at(hover)[0]} y={at(hover)[1]} width={width}>
+            <span className="mb-1 block font-medium text-ink">{columns[hover].label} {columns[hover].year}</span>
+            <TipRow color={series.color} value={Number(values[hover].toFixed(1))} label={unit} />
+            {compare && <TipRow color={compare.color} value={Number(others[hover].toFixed(1))} label={`${unit}, ${compare.label.toLowerCase()}`} />}
+          </Tooltip>
+        )}
+      </div>
+      {compare && <div className="mt-2"><Legend series={[series, compare]} /></div>}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  faBriefcase, faBuilding, faCaretDown, faCirclePlus, faHeartPulse, faLocationDot, faPeopleGroup, faPlus, faTableCellsLarge,
+  faBriefcase, faBuilding, faCaretDown, faCirclePlus, faHeartPulse, faPeopleGroup, faPlus, faTableCellsLarge,
   faVenusMars, faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -11,9 +11,10 @@ import { useMutation, useQuery } from "urql";
 
 import {
   AllAnnouncementsDialog, AnnouncementDialog, BreakdownWidget, CelebrationsWidget, CertificationsWidget, CompanyLinksWidget, HappeningWidget,
-  HolidaysWidget, HomeDataDocument, MyStuffWidget, OnboardingWidget, PayRaiseWidget, PeopleWidget, Photo, ReadAnnouncementDialog,
-  TimeOffRequestsWidget, TimeOffUsedWidget, TimeOffWidget, WelcomeWidget, WhosOutWidget, WIDGETS, type HomeData,
+  HolidaysWidget, HomeDataDocument, MyStuffWidget, OnboardingWidget, PeopleWidget, Photo, ReadAnnouncementDialog, TimeOffWidget,
+  WelcomeWidget, WhosOutWidget, WIDGETS, type HomeData,
 } from "@/components/home/Widgets";
+import { LocationWidget, PayRaiseWidget, TimeOffRequestsWidget, TimeOffUsedWidget } from "@/components/home/Expandable";
 import { EmployeeLeaveDocument, RequestLeaveDialog } from "@/components/leave/Leave";
 import { Button, ErrorNote, Loading, Notice, cx } from "@/components/ui";
 import { graphql } from "@/gql";
@@ -43,7 +44,9 @@ type Announcement = HomeData["announcements"][number];
 type Slot = { key: string; hidden: boolean };
 
 // Where each widget sits on the three-column grid; the feed beside the two personal cards, as on BambooHR.
+// An expanded widget takes two columns.
 const SPAN: Record<string, string> = { happening: "lg:col-span-2 lg:row-span-2", people: "lg:col-span-3" };
+const EXPANDABLE = new Set(["time_off_requests", "time_off_used", "location", "pay_raise"]);
 
 /** The "New…" dropdown beside the greeting. */
 function NewMenu({ children }: { children: (close: () => void) => ReactNode }) {
@@ -96,6 +99,24 @@ export default function HomePage() {
   const [draft, setDraft] = useState<Slot[] | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState<string[]>([]);
+  const [added, setAdded] = useState<string | null>(null);
+
+  // A widget added in edit mode lands at the end of the page: bring it into view and mark it briefly.
+  useEffect(() => {
+    if (!added) return;
+    const frame = requestAnimationFrame(() => {
+      const el = document.getElementById(`widget-${added}`);
+      if (!el) return;
+      // Centre it in the part of the window the edit drawer leaves visible.
+      const drawer = document.getElementById("widget-drawer")?.offsetHeight ?? 0;
+      const box = el.getBoundingClientRect();
+      const room = window.innerHeight - drawer;
+      window.scrollTo({ top: window.scrollY + box.top - Math.max(16, (room - box.height) / 2), behavior: "smooth" });
+    });
+    const done = window.setTimeout(() => setAdded(null), 2200);
+    return () => { cancelAnimationFrame(frame); window.clearTimeout(done); };
+  }, [added]);
 
   if (error) return <ErrorNote error={errorMessage(error)} />;
   if (!me || !data) return <Loading />;
@@ -109,6 +130,11 @@ export default function HomePage() {
     setNotice(message);
     reload({ requestPolicy: "network-only" });
   };
+
+  const expandProps = (key: string) => ({
+    expanded: expanded.includes(key),
+    onExpand: () => setExpanded((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key])),
+  });
 
   // Each widget this person can have. Order and hiding come from their saved layout.
   const widgets: Record<string, ReactNode | null> = {
@@ -124,12 +150,12 @@ export default function HomePage() {
     whos_out: <WhosOutWidget />,
     company_links: data.companyLinks.length || manage ? <CompanyLinksWidget links={data.companyLinks} canEdit={manage} onSaved={done} /> : null,
     welcome: <WelcomeWidget hires={home.newHires} company={company} />,
-    time_off_used: insights ? <TimeOffUsedWidget /> : null,
-    pay_raise: insights && insights.withoutPayRaise !== null && insights.withoutPayRaise !== undefined ? <PayRaiseWidget count={insights.withoutPayRaise} /> : null,
+    time_off_used: insights ? <TimeOffUsedWidget {...expandProps("time_off_used")} /> : null,
+    pay_raise: insights && insights.withoutPayRaise !== null && insights.withoutPayRaise !== undefined ? <PayRaiseWidget {...expandProps("pay_raise")} /> : null,
     certifications: insights ? <CertificationsWidget certifications={insights.expiringCertifications} /> : null,
-    location: insights ? <BreakdownWidget title="Location" icon={faLocationDot} items={insights.byLocation} href="/reports/headcount" empty="No one placed at a location yet." /> : null,
+    location: insights ? <LocationWidget {...expandProps("location")} /> : null,
     onboarding: insights?.onboarding ? <OnboardingWidget summary={insights.onboarding} company={company} /> : null,
-    time_off_requests: insights ? <TimeOffRequestsWidget insights={insights} /> : null,
+    time_off_requests: insights ? <TimeOffRequestsWidget {...expandProps("time_off_requests")} /> : null,
     department: insights ? <BreakdownWidget title="Department" icon={faBuilding} items={insights.byDepartment} href="/reports/headcount" empty="No departments yet." /> : null,
     employment_type: insights ? <BreakdownWidget title="Employment type" icon={faBriefcase} items={insights.byEmploymentType} href="/reports/demographics" empty="No one yet." /> : null,
     gender: insights ? <BreakdownWidget title="Gender" icon={faVenusMars} items={insights.byGender} href="/reports/demographics" empty="No one yet." /> : null,
@@ -155,6 +181,7 @@ export default function HomePage() {
     const rest = draft.filter((w) => w.key !== key);
     // A widget brought back goes to the end, where the person can drag it into place.
     setDraft(hidden ? draft.map((w) => (w.key === key ? { ...w, hidden } : w)) : [...rest, { key, hidden: false }]);
+    if (!hidden) setAdded(key);
   };
   async function save() {
     if (!draft) return;
@@ -205,7 +232,10 @@ export default function HomePage() {
 
       <div className={cx("mt-5 grid grid-flow-row-dense gap-5 lg:grid-cols-3", editing && "rounded-3xl bg-line/40 p-4 sm:p-6")}>
         {shown.map((w) => (
-          <div key={w.key} className={cx("relative min-w-0 [&>section]:h-full", SPAN[w.key], editing && "cursor-grab", dragging === w.key && "opacity-40")}
+          <div key={w.key} id={`widget-${w.key}`}
+            className={cx("relative min-w-0 scroll-mt-24 rounded-2xl transition-shadow duration-500 [&>section]:h-full",
+              SPAN[w.key] ?? (EXPANDABLE.has(w.key) && expanded.includes(w.key) ? "lg:col-span-2" : undefined),
+              editing && "cursor-grab", dragging === w.key && "opacity-40", added === w.key && "ring-4 ring-brand/40")}
             draggable={editing}
             onDragStart={(e: DragEvent) => { setDragging(w.key); e.dataTransfer.effectAllowed = "move"; }}
             onDragEnd={() => setDragging(null)}
@@ -228,7 +258,7 @@ export default function HomePage() {
       )}
 
       {editing && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-background/95 px-4 pb-5 pt-4 shadow-[0_-12px_32px_-12px_rgba(0,0,0,0.25)] backdrop-blur sm:px-8 lg:left-64">
+        <div id="widget-drawer" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-background/95 px-4 pb-5 pt-4 shadow-[0_-12px_32px_-12px_rgba(0,0,0,0.25)] backdrop-blur sm:px-8 lg:left-64">
           <h2 className="flex items-center gap-2.5 font-display text-[22px] text-brand-ink"><FontAwesomeIcon icon={faTableCellsLarge} className="text-[18px]" /> Add widgets</h2>
           <p className="text-[13px] text-muted">Drag widgets on the page to reorder them. Only you see this layout.</p>
           {addable.length ? (
