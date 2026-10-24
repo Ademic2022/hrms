@@ -4,7 +4,7 @@ import {
   faArrowsRotate, faAward, faBoxOpen, faBriefcase, faBuilding, faBullhorn, faCakeCandles, faCalculator, faCalendarDay,
   faCalendarDays, faCalendarPlus, faCertificate, faChartSimple, faChevronRight, faClipboardCheck, faFaceFrown,
   faGraduationCap, faHandsClapping, faHeartPulse, faIdCard, faLink, faListCheck, faLocationDot, faPeopleGroup, faPen,
-  faPlaneDeparture, faSitemap, faThumbtack, faUmbrellaBeach, faUserCheck, faUserMinus, faUserPen, faUserPlus,
+  faPlaneDeparture, faSitemap, faThumbtack, faClipboardList, faChampagneGlasses, faEllipsisVertical, faEnvelope, faPhone, faUser, faUmbrellaBeach, faUserCheck, faUserMinus, faUserPen, faUserPlus,
   faUsers, faVenusMars, faXmark, type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -27,7 +27,11 @@ export const HomeDataDocument = graphql(`
       celebrations { kind date years person { id fullName jobTitle photoUrl } }
       newHires { hireDate person { id fullName jobTitle photoUrl } }
       myStuff { trainings certifications certificationsExpiring benefits openTasks }
-      directReports { notes outToday person { id fullName jobTitle photoUrl } }
+      directReports {
+        notes outToday department location timezone workEmail workPhone workPhoneExt
+        events { kind label date }
+        person { id fullName jobTitle photoUrl }
+      }
       insights {
         months { month headcount additions terminations voluntary involuntary other turnoverRate }
         headcount change changePercent additions terminations turnoverRate
@@ -74,8 +78,9 @@ export function Widget({ title, icon, actions, tools, children, className, flush
   tools?: ReactNode;
 }) {
   return (
-    <section className={cx("group/widget flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm", className)}>
-      <header className="flex min-h-[56px] items-center justify-between gap-3 border-b border-line bg-subtle/60 px-4">
+    // No overflow clipping, so hover cards, menus and chart tooltips can extend past the card.
+    <section className={cx("group/widget flex min-w-0 flex-col rounded-2xl border border-line bg-surface shadow-sm", className)}>
+      <header className="flex min-h-[56px] items-center justify-between gap-3 rounded-t-2xl border-b border-line bg-subtle/60 px-4">
         <h2 className="flex min-w-0 items-center gap-2.5 text-[18px] font-semibold text-brand-ink">
           <FontAwesomeIcon icon={icon} className="text-[16px]" fixedWidth />
           <span className="truncate">{title}</span>
@@ -487,17 +492,77 @@ export function AllAnnouncementsDialog({ announcements, canEdit, onClose, onOpen
 
 /* ----------------------------------------- People: headcount, direct reports, turnover */
 
-function noteIcon(note: string): IconDefinition {
-  if (note.startsWith("Out")) return faUmbrellaBeach;
-  if (note.startsWith("Birthday")) return faCakeCandles;
-  if (note.includes("anniversary")) return faAward;
-  if (note.startsWith("Onboarding")) return faListCheck;
-  return faCalendarDay;
+type Report = HomeData["home"]["directReports"][number];
+
+const EVENT_ICONS: Record<string, IconDefinition> = {
+  out: faUmbrellaBeach, pending: faClipboardList, holiday: faChampagneGlasses, birthday: faCakeCandles,
+  anniversary: faAward, onboarding: faListCheck,
+};
+
+/** Shows `content` while the pointer is over the trigger or the card (or it has keyboard focus), as BambooHR's hover cards do. */
+function HoverCard({ trigger, children, className }: { trigger: ReactNode; children: ReactNode; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  const show = () => { window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setOpen(true), 150); };
+  const hide = () => { window.clearTimeout(timer.current); timer.current = window.setTimeout(() => setOpen(false), 120); };
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  return (
+    <span className="relative inline-flex" onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide}
+      onKeyDown={(e) => e.key === "Escape" && setOpen(false)}>
+      {trigger}
+      {open && (
+        <span role="dialog" className={cx("absolute top-full z-30 mt-1.5 block rounded-xl border border-line bg-surface p-4 text-left shadow-lg", className)}>
+          {children}
+        </span>
+      )}
+    </span>
+  );
 }
 
-function ReportTile({ report }: { report: HomeData["home"]["directReports"][number] }) {
+function localTime(zone: string | null | undefined) {
+  if (!zone) return null;
+  try {
+    return new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: zone });
+  } catch {
+    return null;
+  }
+}
+
+function ContactCard({ report }: { report: Report }) {
+  const time = localTime(report.timezone);
+  const role = [report.person.jobTitle, report.department].filter(Boolean).join(" | ");
+  return (
+    <span className="block w-72">
+      <span className="flex items-center gap-3">
+        <Photo name={report.person.fullName} src={report.person.photoUrl} size={44} />
+        <span className="min-w-0">
+          <span className="block truncate font-display text-[19px] text-ink">{report.person.fullName}</span>
+          {role && <span className="block truncate text-[13px] text-muted">{role}</span>}
+        </span>
+      </span>
+      <span className="mt-3 block space-y-1.5 text-[13px] text-ink">
+        {report.location && (
+          <span className="flex items-center gap-2.5"><FontAwesomeIcon icon={faLocationDot} fixedWidth className="text-muted" />{report.location}{time ? ` · ${time} local time` : ""}</span>
+        )}
+        {report.workEmail && (
+          <a href={`mailto:${report.workEmail}`} className="flex items-center gap-2.5 hover:underline"><FontAwesomeIcon icon={faEnvelope} fixedWidth className="text-muted" />{report.workEmail}</a>
+        )}
+        {report.workPhone && (
+          <a href={`tel:${report.workPhone}`} className="flex items-center gap-2.5 hover:underline">
+            <FontAwesomeIcon icon={faPhone} fixedWidth className="text-muted" />{report.workPhone}{report.workPhoneExt ? ` ext. ${report.workPhoneExt}` : ""}
+          </a>
+        )}
+      </span>
+      <Link href={`/employees/${report.person.id}`} className="mt-3 flex items-center gap-2 text-sm font-medium text-brand-ink hover:underline">
+        <FontAwesomeIcon icon={faUser} className="text-xs" /> Open profile
+      </Link>
+    </span>
+  );
+}
+
+function TileMenu({ report }: { report: Report }) {
   const [open, setOpen] = useState(false);
-  const box = useRef<HTMLLIElement>(null);
+  const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     if (!open) return;
     const close = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
@@ -506,28 +571,63 @@ function ReportTile({ report }: { report: HomeData["home"]["directReports"][numb
     document.addEventListener("keydown", escape);
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", escape); };
   }, [open]);
-  const [first, ...more] = report.notes;
+  const item = "flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm text-ink hover:bg-subtle";
   return (
-    <li ref={box} className="relative flex flex-col items-center text-center">
-      <Link href={`/employees/${report.person.id}`} className="group flex flex-col items-center">
-        <Photo name={report.person.fullName} src={report.person.photoUrl} size={96} faded={report.outToday} />
-        <span className={cx("mt-2.5 text-[15px] font-medium group-hover:underline", report.outToday ? "text-muted" : "text-ink")}>{report.person.fullName}</span>
-      </Link>
-      {first && <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted"><FontAwesomeIcon icon={noteIcon(first)} className="text-[11px]" />{first}</span>}
-      {more.length > 0 && (
-        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
-          className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted hover:text-ink">
-          <span className="h-2 w-2 rounded-full bg-brand" aria-hidden />+{more.length} more
-        </button>
-      )}
+    <span ref={box} className={cx("absolute -right-2 -top-2 z-10 transition", open ? "opacity-100" : "opacity-0 group-hover/tile:opacity-100 has-[:focus-visible]:opacity-100")}>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" aria-label={`Actions for ${report.person.fullName}`}
+        className="grid h-7 w-7 place-items-center rounded-full border border-line-strong bg-surface text-ink shadow-sm hover:bg-subtle">
+        <FontAwesomeIcon icon={faEllipsisVertical} className="text-xs" />
+      </button>
       {open && (
-        <div role="dialog" aria-label={report.person.fullName} className="absolute left-1/2 top-full z-30 mt-1 w-64 -translate-x-1/2 rounded-xl border border-line bg-surface p-4 text-left shadow-lg">
-          <p className="font-semibold text-ink">{report.person.fullName}</p>
-          {report.person.jobTitle && <p className="text-sm text-muted">{report.person.jobTitle}</p>}
-          <ul className="mt-3 space-y-2">
-            {report.notes.map((n) => <li key={n} className="flex items-center gap-2.5 text-sm text-ink"><FontAwesomeIcon icon={noteIcon(n)} fixedWidth className="text-muted" />{n}</li>)}
-          </ul>
-        </div>
+        <span role="menu" className="absolute right-0 top-full z-30 mt-1 block w-48 rounded-xl border border-line bg-surface py-1.5 shadow-lg">
+          <Link role="menuitem" href={`/employees/${report.person.id}`} className={item}><FontAwesomeIcon icon={faUser} fixedWidth className="text-muted" />View profile</Link>
+          <Link role="menuitem" href={`/employees/${report.person.id}?tab=time_off`} className={item}><FontAwesomeIcon icon={faUmbrellaBeach} fixedWidth className="text-muted" />Time off</Link>
+          {report.workEmail && <a role="menuitem" href={`mailto:${report.workEmail}`} className={item}><FontAwesomeIcon icon={faEnvelope} fixedWidth className="text-muted" />Send email</a>}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function ReportTile({ report }: { report: Report }) {
+  const [first, ...more] = report.events;
+  return (
+    <li className="flex flex-col items-center text-center">
+      <span className="group/tile relative">
+        <Link href={`/employees/${report.person.id}`} aria-label={report.person.fullName}>
+          <Photo name={report.person.fullName} src={report.person.photoUrl} size={96} faded={report.outToday} />
+        </Link>
+        <TileMenu report={report} />
+      </span>
+      <HoverCard className="left-1/2 -translate-x-1/2" trigger={
+        <Link href={`/employees/${report.person.id}`}
+          className={cx("mt-2.5 text-[15px] font-medium hover:text-brand-ink hover:underline focus-visible:text-brand-ink", report.outToday ? "text-muted" : "text-ink")}>
+          {report.person.fullName}
+        </Link>
+      }>
+        <ContactCard report={report} />
+      </HoverCard>
+      {first && (
+        <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted">
+          <FontAwesomeIcon icon={EVENT_ICONS[first.kind] ?? faCalendarDay} className="text-[11px]" />{first.label}
+        </span>
+      )}
+      {more.length > 0 && (
+        <HoverCard className="left-full top-0 ml-2 mt-0 w-64" trigger={
+          <button type="button" className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted hover:text-ink">
+            <span className="h-2 w-2 rounded-full bg-brand" aria-hidden />+{more.length} more
+          </button>
+        }>
+          <span className="block font-semibold text-ink">{report.person.fullName}</span>
+          {report.person.jobTitle && <span className="block text-sm text-muted">{report.person.jobTitle}</span>}
+          <span className="mt-3 block space-y-2">
+            {report.events.map((ev) => (
+              <span key={ev.kind + ev.label} className="flex items-center gap-2.5 text-sm text-ink">
+                <FontAwesomeIcon icon={EVENT_ICONS[ev.kind] ?? faCalendarDay} fixedWidth className="text-muted" />{ev.label}
+              </span>
+            ))}
+          </span>
+        </HoverCard>
       )}
     </li>
   );
