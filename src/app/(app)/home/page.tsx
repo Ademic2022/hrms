@@ -1,34 +1,23 @@
 "use client";
 
+import { faBullhorn, faCaretDown, faTableCellsLarge, faUmbrellaBeach, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
-import { useState } from "react";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "urql";
 
-import { IconCheck, IconPlus } from "@/components/icons";
-import { EmployeeLeaveDocument, LeaveStatusBadge, RequestLeaveDialog, TypeDot } from "@/components/leave/Leave";
-import { Avatar, Button, ButtonLink, Card, Loading, Notice, PageHeader, RowLink, Stat } from "@/components/ui";
+import {
+  AnnouncementDialog, CelebrationsWidget, CompanyLinksWidget, DirectReportsWidget, EditWidgetsDialog, HappeningWidget, HomeDataDocument,
+  InsightsWidget, MyStuffWidget, OnboardingWidget, PayRaiseWidget, ReadAnnouncementDialog, TimeOffRequestsWidget, TimeOffUsedWidget,
+  TimeOffWidget, WelcomeWidget, WhosOutWidget, type HomeData,
+} from "@/components/home/Widgets";
+import { EmployeeLeaveDocument, RequestLeaveDialog } from "@/components/leave/Leave";
+import { Avatar, Button, ErrorNote, Loading, Notice } from "@/components/ui";
 import { graphql } from "@/gql";
-import { formatDays, formatRange } from "@/lib/format";
+import { errorMessage } from "@/lib/api";
 import { today } from "@/lib/forms";
 import { PERMS } from "@/lib/permissions";
 import { useSession } from "@/lib/session";
-
-const HomeDocument = graphql(`
-  query Home($start: Date!, $end: Date!, $year: Int!, $next: Int!) {
-    leaveApprovals { id startDate endDate days employee { fullName } leaveType { name color } }
-    leaveCalendar(start: $start, end: $end) {
-      absences { requestId startDate endDate halfDay status employee { id fullName } leaveType { name color } }
-    }
-    thisYear: publicHolidays(year: $year) { id name date location { name } }
-    nextYear: publicHolidays(year: $next) { id name date location { name } }
-  }
-`);
-
-const StatsDocument = graphql(`
-  query HomeStats {
-    peopleStats { headcount joinersThisMonth leaversThisMonth onProbation awayToday pendingLeaveRequests }
-  }
-`);
 
 const ExpiringDocument = graphql(`
   query HomeExpiring {
@@ -36,189 +25,152 @@ const ExpiringDocument = graphql(`
   }
 `);
 
-const TeamDocument = graphql(`
-  query HomeTeam($managerId: ID!) {
-    directory(managerId: $managerId, first: 100) { nodes { id fullName jobTitle } }
+const MyPhotoDocument = graphql(`
+  query HomeMyPhoto($id: ID!) {
+    employee(id: $id) { id photoUrl }
   }
 `);
 
-function addDays(iso: string, days: number) {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+type Announcement = HomeData["announcements"][number];
+
+/** The "New…" dropdown beside the greeting. */
+function NewMenu({ children }: { children: (close: () => void) => ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", escape); };
+  }, [open]);
+  return (
+    <div ref={box} className="relative">
+      <Button variant="secondary" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu">
+        New… <FontAwesomeIcon icon={faCaretDown} className="text-xs" />
+      </Button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-40 mt-2 w-60 overflow-hidden rounded-xl border border-line bg-surface py-1.5 shadow-lg">
+          {children(() => setOpen(false))}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function greeting() {
-  const hour = new Date().getHours();
-  return hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+function NewItem({ icon, onClick, href, children }: { icon: typeof faBullhorn; onClick?: () => void; href?: string; children: ReactNode }) {
+  const className = "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-ink hover:bg-subtle";
+  const body = <><FontAwesomeIcon icon={icon} fixedWidth className="text-muted" />{children}</>;
+  return href ? <Link role="menuitem" href={href} className={className}>{body}</Link>
+    : <button role="menuitem" type="button" onClick={onClick} className={className}>{body}</button>;
 }
 
 export default function HomePage() {
-  const { me, can } = useSession();
+  const { me, can, tenant } = useSession();
   const now = today();
-  const weekEnd = addDays(now, 6);
-  const year = new Date().getFullYear();
   const employeeId = me?.employee?.id;
-  const seesStats = can(PERMS.employeesView);
+  const manage = can(PERMS.employeesManage);
 
-  const [{ data }] = useQuery({ query: HomeDocument, variables: { start: now, end: weekEnd, year, next: year + 1 } });
+  const [{ data, error }, reload] = useQuery({ query: HomeDataDocument });
   const [{ data: leaveData }, reloadLeave] = useQuery({ query: EmployeeLeaveDocument, variables: {}, pause: !employeeId });
-  const [{ data: stats }] = useQuery({ query: StatsDocument, pause: !seesStats });
-  const [{ data: expiringDocs }] = useQuery({ query: ExpiringDocument, pause: !can(PERMS.documentsManage) });
-  const [{ data: team }] = useQuery({ query: TeamDocument, variables: { managerId: employeeId ?? "" }, pause: !employeeId });
-  const [requesting, setRequesting] = useState(false);
-  const [saved, setSaved] = useState<string>();
+  const [{ data: expiring }] = useQuery({ query: ExpiringDocument, pause: !can(PERMS.documentsManage) });
+  const [{ data: photo }] = useQuery({ query: MyPhotoDocument, variables: { id: employeeId ?? "" }, pause: !employeeId });
+  const [dialog, setDialog] = useState<"request" | "post" | "edit" | null>(null);
+  const [reading, setReading] = useState<Announcement | null>(null);
+  const [editingPost, setEditingPost] = useState<Announcement | null>(null);
+  const [notice, setNotice] = useState<string>();
 
+  if (error) return <ErrorNote error={errorMessage(error)} />;
   if (!me || !data) return <Loading />;
-  const leave = leaveData?.employeeLeave;
-  const mine = (leave?.requests ?? [])
-    .filter((r) => (r.status === "APPROVED" || r.status === "PENDING") && r.endDate >= now)
-    .sort((a, b) => a.startDate.localeCompare(b.startDate))
-    .slice(0, 4);
-  const away = data.leaveCalendar.absences.filter((a) => a.employee.id !== employeeId);
-  const holidays = [...data.thisYear, ...data.nextYear].filter((h) => h.date >= now).slice(0, 4);
-  const reports = team?.directory.nodes ?? [];
+  const home = data.home;
+  const balances = leaveData?.employeeLeave.balances ?? [];
+  const company = tenant?.name ?? "the company";
   const firstName = me.user.fullName.split(" ")[0];
+  const done = (message: string) => {
+    setDialog(null);
+    setNotice(message);
+    reload({ requestPolicy: "network-only" });
+  };
+
+  // Each widget, if this person can have it. Order and hiding come from their saved layout.
+  const widgets: Record<string, ReactNode | null> = {
+    time_off: employeeId && balances.length ? <TimeOffWidget balances={balances} onRequest={() => setDialog("request")} /> : null,
+    my_stuff: employeeId && home.myStuff ? <MyStuffWidget stuff={home.myStuff} employeeId={employeeId} /> : null,
+    happening: (
+      <HappeningWidget announcements={data.announcements} newHires={home.newHires} canPost={manage} canSeeChanges={manage}
+        onChanged={done} onOpen={setReading} onPost={() => { setEditingPost(null); setDialog("post"); }} />
+    ),
+    direct_reports: home.directReports.length ? <DirectReportsWidget reports={home.directReports} /> : null,
+    insights: home.insights ? <InsightsWidget insights={home.insights} /> : null,
+    celebrations: <CelebrationsWidget celebrations={home.celebrations} />,
+    whos_out: <WhosOutWidget today={now} />,
+    company_links: data.companyLinks.length || manage ? <CompanyLinksWidget links={data.companyLinks} canEdit={manage} onSaved={done} /> : null,
+    welcome: <WelcomeWidget hires={home.newHires} company={company} />,
+    time_off_used: home.insights ? <TimeOffUsedWidget /> : null,
+    time_off_requests: home.insights ? <TimeOffRequestsWidget insights={home.insights} /> : null,
+    onboarding: home.insights?.onboarding ? <OnboardingWidget summary={home.insights.onboarding} company={company} /> : null,
+    pay_raise: home.insights && home.insights.withoutPayRaise !== null && home.insights.withoutPayRaise !== undefined
+      ? <PayRaiseWidget count={home.insights.withoutPayRaise} /> : null,
+  };
+  const available = new Set(Object.keys(widgets).filter((k) => widgets[k] !== null));
+  const shown = data.homeLayout.filter((w) => !w.hidden && available.has(w.key));
 
   return (
     <>
-      <PageHeader
-        eyebrow={new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}
-        title={`${greeting()}, ${firstName}`}
-        actions={leave?.balances.length ? (
-          <Button icon={<IconPlus size={16} />} onClick={() => { setSaved(undefined); setRequesting(true); }}>Request time off</Button>
-        ) : null}
-      />
-      {saved && <Notice tone="success">{saved}</Notice>}
-      {expiringDocs && expiringDocs.expiringDocuments.length > 0 && (
-        <Notice tone="warning" title={`${expiringDocs.expiringDocuments.length} ${expiringDocs.expiringDocuments.length === 1 ? "document has" : "documents have"} expired or expire within 30 days`}>
-          <Link href="/documents" className="font-semibold underline-offset-2 hover:underline">See which ones</Link>
-        </Notice>
-      )}
-
-      {stats && (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Stat label="People" value={stats.peopleStats.headcount}
-            hint={stats.peopleStats.onProbation ? `${stats.peopleStats.onProbation} on probation` : undefined} />
-          <Stat label="Joined this month" value={stats.peopleStats.joinersThisMonth}
-            hint={stats.peopleStats.leaversThisMonth ? `${stats.peopleStats.leaversThisMonth} left` : "No leavers"} />
-          <Stat label="Away today" value={stats.peopleStats.awayToday} />
-          <Stat label="Leave requests pending" value={stats.peopleStats.pendingLeaveRequests} />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          {photo?.employee?.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photo.employee.photoUrl} alt="" className="h-16 w-16 rounded-2xl object-cover ring-1 ring-line" />
+          ) : <span className="hidden sm:block"><Avatar name={me.user.fullName} size="lg" /></span>}
+          <div>
+            <p className="text-sm text-muted">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
+            <h1 className="font-display text-[34px] font-medium leading-tight text-brand-ink">Hi, {firstName}</h1>
+          </div>
         </div>
-      )}
-
-      <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
-        <div className="min-w-0 space-y-5">
-          {data.leaveApprovals.length > 0 && (
-            <Card flush title="Waiting for you" description={`${data.leaveApprovals.length} leave ${data.leaveApprovals.length === 1 ? "request" : "requests"} to decide`}
-              actions={<ButtonLink href="/leave/approvals" size="sm" variant="secondary">Open approvals</ButtonLink>}>
-              {data.leaveApprovals.slice(0, 5).map((r) => (
-                <RowLink key={r.id} href="/leave/approvals" title={r.employee.fullName}
-                  meta={<span className="flex items-center gap-1.5"><TypeDot color={r.leaveType.color} className="h-2 w-2" />{r.leaveType.name} · {formatRange(r.startDate, r.endDate)}</span>}
-                  right={<span className="tabular-nums text-muted">{formatDays(r.days)}</span>} />
-              ))}
-            </Card>
-          )}
-
-          {leave && leave.balances.length > 0 && (
-            <Card title="Your leave" actions={<Link href="/leave" className="text-sm font-medium text-brand-ink hover:underline">All time off</Link>}>
-              <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-                {leave.balances.map((b) => (
-                  <div key={b.leaveType.id} className="flex items-center justify-between gap-3">
-                    <span className="flex min-w-0 items-center gap-2 text-sm"><TypeDot color={b.leaveType.color} /><span className="truncate">{b.leaveType.name}</span></span>
-                    <span className="flex-none text-right text-sm tabular-nums">
-                      {b.available != null ? <><span className="font-semibold text-ink">{Number(b.available)}</span> <span className="text-muted">days left</span></> : <span className="text-muted">As needed</span>}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {mine.length > 0 && (
-                <ul className="mt-5 space-y-2 border-t border-line pt-4">
-                  {mine.map((r) => (
-                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                      <span className="flex items-center gap-2"><TypeDot color={r.leaveType.color} />{formatRange(r.startDate, r.endDate)}</span>
-                      <LeaveStatusBadge status={r.status} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          )}
-
-          <Card flush title="Away this week" description={formatRange(now, weekEnd)}
-            actions={<Link href="/leave/calendar" className="text-sm font-medium text-brand-ink hover:underline">Calendar</Link>}>
-            {away.length ? (
-              <ul className="divide-y divide-line">
-                {away.map((a) => (
-                  <li key={a.requestId} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                    <span className="flex min-w-0 items-center gap-3">
-                      <Avatar name={a.employee.fullName} />
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium text-ink">{a.employee.fullName}</span>
-                        <span className="block text-xs text-muted">{a.leaveType?.name ?? "Away"}{a.halfDay ? ", half day" : ""}</span>
-                      </span>
-                    </span>
-                    <span className="flex-none text-right text-[13px] tabular-nums text-muted">
-                      {formatRange(a.startDate, a.endDate)}
-                      {a.status === "PENDING" && <span className="block text-xs">Not yet approved</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="flex items-center gap-2 px-5 py-4 text-sm text-muted"><IconCheck size={16} />Everyone is in this week.</p>
+        <div className="flex items-center gap-2">
+          <NewMenu>
+            {(close) => (
+              <>
+                {balances.length > 0 && <NewItem icon={faUmbrellaBeach} onClick={() => { close(); setDialog("request"); }}>Time off request</NewItem>}
+                {manage && <NewItem icon={faBullhorn} onClick={() => { close(); setEditingPost(null); setDialog("post"); }}>Announcement</NewItem>}
+                {manage && <NewItem icon={faUserPlus} href="/employees/new">Employee</NewItem>}
+              </>
             )}
-          </Card>
-        </div>
-
-        <div className="space-y-5">
-          <Card title="Public holidays">
-            {holidays.length ? (
-              <ul className="space-y-3">
-                {holidays.map((h) => (
-                  <li key={h.id} className="flex items-center gap-3 text-sm">
-                    <span className="grid h-10 w-10 flex-none place-items-center rounded-lg bg-subtle text-center leading-none">
-                      <span>
-                        <span className="block text-[10px] font-semibold uppercase text-muted">{new Date(`${h.date}T00:00:00`).toLocaleDateString(undefined, { month: "short" })}</span>
-                        <span className="block font-display text-base text-ink">{Number(h.date.slice(8))}</span>
-                      </span>
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-ink">{h.name}</span>
-                      <span className="block text-xs text-muted">
-                        {new Date(`${h.date}T00:00:00`).toLocaleDateString(undefined, { weekday: "long" })}
-                        {h.location && ` · ${h.location.name} only`}
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="text-sm text-muted">None coming up.</p>}
-          </Card>
-
-          {reports.length > 0 && (
-            <Card flush title="Your team" description={`${reports.length} direct ${reports.length === 1 ? "report" : "reports"}`}>
-              {reports.map((p) => (
-                <RowLink key={p.id} href={`/employees/${p.id}`}
-                  title={<span className="flex items-center gap-3"><Avatar name={p.fullName} />{p.fullName}</span>}
-                  meta={p.jobTitle ? <span className="pl-11">{p.jobTitle}</span> : undefined} />
-              ))}
-            </Card>
-          )}
-
-          {!employeeId && (
-            <Notice tone="info">Your account is not linked to an employee record, so there is no leave or team to show.</Notice>
-          )}
+          </NewMenu>
+          <Button variant="secondary" icon={<FontAwesomeIcon icon={faTableCellsLarge} className="text-[13px]" />} onClick={() => setDialog("edit")}>Edit</Button>
         </div>
       </div>
 
-      {requesting && leave && (
-        <RequestLeaveDialog balances={leave.balances} onClose={() => setRequesting(false)}
-          onSaved={(status) => {
-            setRequesting(false);
-            setSaved(status === "APPROVED" ? "Leave booked." : "Request sent to your manager.");
-            reloadLeave({ requestPolicy: "network-only" });
-          }} />
+      {notice && <Notice tone="success">{notice}</Notice>}
+      {expiring && expiring.expiringDocuments.length > 0 && (
+        <Notice tone="warning" title={`${expiring.expiringDocuments.length} ${expiring.expiringDocuments.length === 1 ? "document has" : "documents have"} expired or expire within 30 days`}>
+          <Link href="/documents" className="font-semibold underline-offset-2 hover:underline">See which ones</Link>
+        </Notice>
+      )}
+      {!employeeId && <Notice tone="info">Your account is not linked to an employee record, so there is no leave or team to show.</Notice>}
+
+      <div className="grid grid-flow-row-dense gap-5 lg:grid-cols-3">
+        {/* Wide widgets span the grid; the feed takes two columns and two rows beside the personal cards, as on BambooHR. */}
+        {shown.map((w) => <Fragment key={w.key}>{widgets[w.key]}</Fragment>)}
+      </div>
+      {shown.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-line-strong px-6 py-12 text-center text-sm text-muted">
+          Every widget is hidden. Use Edit to bring some back.
+        </div>
+      )}
+
+      {dialog === "request" && leaveData && (
+        <RequestLeaveDialog balances={leaveData.employeeLeave.balances} onClose={() => setDialog(null)}
+          onSaved={(status) => { reloadLeave({ requestPolicy: "network-only" }); done(status === "APPROVED" ? "Leave booked." : "Request sent to your manager."); }} />
+      )}
+      {dialog === "post" && <AnnouncementDialog announcement={editingPost} onClose={() => setDialog(null)} onSaved={done} />}
+      {dialog === "edit" && <EditWidgetsDialog widgets={data.homeLayout} available={available} onClose={() => setDialog(null)} onSaved={() => done("Home page saved.")} />}
+      {reading && (
+        <ReadAnnouncementDialog announcement={reading} canEdit={manage} onClose={() => setReading(null)}
+          onEdit={() => { setEditingPost(reading); setReading(null); setDialog("post"); }}
+          onDeleted={() => { setReading(null); done("Announcement deleted."); }} />
       )}
     </>
   );

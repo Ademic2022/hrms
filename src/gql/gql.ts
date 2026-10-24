@@ -32,10 +32,8 @@ type Documents = {
     "\n  query Employees($filter: EmployeeFilter, $first: Int, $after: String) {\n    employees(filter: $filter, first: $first, after: $after) {\n      totalCount\n      pageInfo { hasNextPage endCursor }\n      nodes {\n        id\n        employeeNumber\n        fullName\n        status\n        hireDate\n        jobTitle { name }\n        department { name }\n        location { name }\n      }\n    }\n    departments { id name }\n  }\n": typeof types.EmployeesDocument,
     "\n  query PendingChanges {\n    pendingChangeRequests { id employeeId employeeName createdAt canDecide lines { field label current requested } }\n  }\n": typeof types.PendingChangesDocument,
     "\n  mutation DecideChangeRequest($id: ID!, $approve: Boolean!, $note: String) {\n    decideChangeRequest(id: $id, approve: $approve, note: $note) { request { id status } errors { field message } }\n  }\n": typeof types.DecideChangeRequestDocument,
-    "\n  query Home($start: Date!, $end: Date!, $year: Int!, $next: Int!) {\n    leaveApprovals { id startDate endDate days employee { fullName } leaveType { name color } }\n    leaveCalendar(start: $start, end: $end) {\n      absences { requestId startDate endDate halfDay status employee { id fullName } leaveType { name color } }\n    }\n    thisYear: publicHolidays(year: $year) { id name date location { name } }\n    nextYear: publicHolidays(year: $next) { id name date location { name } }\n  }\n": typeof types.HomeDocument,
-    "\n  query HomeStats {\n    peopleStats { headcount joinersThisMonth leaversThisMonth onProbation awayToday pendingLeaveRequests }\n  }\n": typeof types.HomeStatsDocument,
     "\n  query HomeExpiring {\n    expiringDocuments(withinDays: 30) { id }\n  }\n": typeof types.HomeExpiringDocument,
-    "\n  query HomeTeam($managerId: ID!) {\n    directory(managerId: $managerId, first: 100) { nodes { id fullName jobTitle } }\n  }\n": typeof types.HomeTeamDocument,
+    "\n  query HomeMyPhoto($id: ID!) {\n    employee(id: $id) { id photoUrl }\n  }\n": typeof types.HomeMyPhotoDocument,
     "\n  query LeaveApprovals($everyone: Boolean!) {\n    leaveApprovals(everyone: $everyone) {\n      id startDate endDate halfDay days reason status createdAt canDecide decideAsOverride\n      employee { id fullName }\n      leaveType { id name color }\n      waitingFor { id fullName }\n      approvals { level status note overridden actedBy actedAt approver { id fullName } }\n    }\n    myDelegations { id startDate endDate delegator { id fullName } delegate { id fullName } }\n  }\n": typeof types.LeaveApprovalsDocument,
     "\n  mutation DecideLeave($input: DecideLeaveInput!) {\n    decideLeave(input: $input) {\n      request { id status }\n      errors { field message }\n    }\n  }\n": typeof types.DecideLeaveDocument,
     "\n  query DelegatePeople {\n    employees(filter: { statuses: [ACTIVE, PROBATION] }, first: 100) { nodes { id fullName } }\n  }\n": typeof types.DelegatePeopleDocument,
@@ -103,6 +101,17 @@ type Documents = {
     "\n  query MyChangeRequests {\n    myChangeRequests { id status note createdAt decidedAt decidedBy lines { field label current requested } }\n  }\n": typeof types.MyChangeRequestsDocument,
     "\n  mutation UpdateMyDetails($input: MyDetailsInput!) {\n    updateMyDetails(input: $input) { applied request { id } errors { field message } }\n  }\n": typeof types.UpdateMyDetailsDocument,
     "\n  mutation CancelChangeRequest($id: ID!) {\n    cancelChangeRequest(id: $id) { request { id status } errors { field message } }\n  }\n": typeof types.CancelChangeRequestDocument,
+    "\n  query HomeData {\n    home {\n      celebrations { kind date years person { id fullName jobTitle photoUrl } }\n      newHires { hireDate person { id fullName jobTitle photoUrl } }\n      myStuff { trainings certifications certificationsExpiring benefits openTasks }\n      directReports { notes outToday person { id fullName jobTitle photoUrl } }\n      insights {\n        headcount { month value }\n        leavers { month value }\n        turnoverRate\n        byLocation { label value }\n        pendingUrgent pendingOther withoutPayRaise\n        onboarding { inProgress withOverdue startingSoon }\n      }\n    }\n    announcements(limit: 10) { id title body authorName publishedAt pinned }\n    companyLinks { id group label url }\n    homeLayout { key hidden }\n  }\n": typeof types.HomeDataDocument,
+    "\n  query HomeApprovals {\n    leaveApprovals { id startDate endDate days createdAt canDecide employee { id fullName } leaveType { name color } }\n  }\n": typeof types.HomeApprovalsDocument,
+    "\n  query HomeChanges {\n    pendingChangeRequests { id employeeId employeeName createdAt canDecide }\n  }\n": typeof types.HomeChangesDocument,
+    "\n  mutation HomeDecideLeave($input: DecideLeaveInput!) {\n    decideLeave(input: $input) { request { id status } errors { field message } }\n  }\n": typeof types.HomeDecideLeaveDocument,
+    "\n  mutation SaveAnnouncement($input: AnnouncementInput!) {\n    saveAnnouncement(input: $input) { announcement { id } errors { field message } }\n  }\n": typeof types.SaveAnnouncementDocument,
+    "\n  mutation DeleteAnnouncement($id: ID!) {\n    deleteAnnouncement(id: $id)\n  }\n": typeof types.DeleteAnnouncementDocument,
+    "\n  query HomeWhosOut($day: Date!) {\n    leaveCalendar(start: $day, end: $day) { absences { requestId status employee { id fullName } leaveType { name } } }\n  }\n": typeof types.HomeWhosOutDocument,
+    "\n  mutation SaveCompanyLinks($links: [CompanyLinkInput!]!) {\n    saveCompanyLinks(links: $links) { links { id } errors { field message } }\n  }\n": typeof types.SaveCompanyLinksDocument,
+    "\n  query HomeTimeOffUsed($leaveTypeId: ID!) {\n    timeOffUsed(leaveTypeId: $leaveTypeId) { month value }\n  }\n": typeof types.HomeTimeOffUsedDocument,
+    "\n  query HomeLeaveTypes {\n    leaveTypes { id name }\n  }\n": typeof types.HomeLeaveTypesDocument,
+    "\n  mutation SaveHomeLayout($widgets: JSON!) {\n    saveHomeLayout(widgets: $widgets) { key hidden }\n  }\n": typeof types.SaveHomeLayoutDocument,
     "\n  query EmployeeLeave($employeeId: ID) {\n    employeeLeave(employeeId: $employeeId) {\n      employee { id fullName }\n      balances {\n        leaveType { id name color tracksBalance allowHalfDays isPaid }\n        policyName entitlement balance pending available takenThisYear\n      }\n      requests {\n        id startDate endDate halfDay days reason status createdAt canCancel canDecide\n        leaveType { id name color }\n        approvals { level status note overridden actedBy actedAt approver { id fullName } }\n      }\n      ledger { id date kind amount reason leaveType { name } }\n    }\n  }\n": typeof types.EmployeeLeaveDocument,
     "\n  mutation CancelLeave($id: ID!) {\n    cancelLeave(id: $id) {\n      request { id status }\n      errors { field message }\n    }\n  }\n": typeof types.CancelLeaveDocument,
     "\n  query LeaveQuote($leaveTypeId: ID!, $startDate: Date!, $endDate: Date!, $halfDay: Boolean!, $employeeId: ID) {\n    leaveQuote(leaveTypeId: $leaveTypeId, startDate: $startDate, endDate: $endDate, halfDay: $halfDay, employeeId: $employeeId) {\n      days available availableAfter\n      errors { field message }\n    }\n  }\n": typeof types.LeaveQuoteDocument,
@@ -152,10 +161,8 @@ const documents: Documents = {
     "\n  query Employees($filter: EmployeeFilter, $first: Int, $after: String) {\n    employees(filter: $filter, first: $first, after: $after) {\n      totalCount\n      pageInfo { hasNextPage endCursor }\n      nodes {\n        id\n        employeeNumber\n        fullName\n        status\n        hireDate\n        jobTitle { name }\n        department { name }\n        location { name }\n      }\n    }\n    departments { id name }\n  }\n": types.EmployeesDocument,
     "\n  query PendingChanges {\n    pendingChangeRequests { id employeeId employeeName createdAt canDecide lines { field label current requested } }\n  }\n": types.PendingChangesDocument,
     "\n  mutation DecideChangeRequest($id: ID!, $approve: Boolean!, $note: String) {\n    decideChangeRequest(id: $id, approve: $approve, note: $note) { request { id status } errors { field message } }\n  }\n": types.DecideChangeRequestDocument,
-    "\n  query Home($start: Date!, $end: Date!, $year: Int!, $next: Int!) {\n    leaveApprovals { id startDate endDate days employee { fullName } leaveType { name color } }\n    leaveCalendar(start: $start, end: $end) {\n      absences { requestId startDate endDate halfDay status employee { id fullName } leaveType { name color } }\n    }\n    thisYear: publicHolidays(year: $year) { id name date location { name } }\n    nextYear: publicHolidays(year: $next) { id name date location { name } }\n  }\n": types.HomeDocument,
-    "\n  query HomeStats {\n    peopleStats { headcount joinersThisMonth leaversThisMonth onProbation awayToday pendingLeaveRequests }\n  }\n": types.HomeStatsDocument,
     "\n  query HomeExpiring {\n    expiringDocuments(withinDays: 30) { id }\n  }\n": types.HomeExpiringDocument,
-    "\n  query HomeTeam($managerId: ID!) {\n    directory(managerId: $managerId, first: 100) { nodes { id fullName jobTitle } }\n  }\n": types.HomeTeamDocument,
+    "\n  query HomeMyPhoto($id: ID!) {\n    employee(id: $id) { id photoUrl }\n  }\n": types.HomeMyPhotoDocument,
     "\n  query LeaveApprovals($everyone: Boolean!) {\n    leaveApprovals(everyone: $everyone) {\n      id startDate endDate halfDay days reason status createdAt canDecide decideAsOverride\n      employee { id fullName }\n      leaveType { id name color }\n      waitingFor { id fullName }\n      approvals { level status note overridden actedBy actedAt approver { id fullName } }\n    }\n    myDelegations { id startDate endDate delegator { id fullName } delegate { id fullName } }\n  }\n": types.LeaveApprovalsDocument,
     "\n  mutation DecideLeave($input: DecideLeaveInput!) {\n    decideLeave(input: $input) {\n      request { id status }\n      errors { field message }\n    }\n  }\n": types.DecideLeaveDocument,
     "\n  query DelegatePeople {\n    employees(filter: { statuses: [ACTIVE, PROBATION] }, first: 100) { nodes { id fullName } }\n  }\n": types.DelegatePeopleDocument,
@@ -223,6 +230,17 @@ const documents: Documents = {
     "\n  query MyChangeRequests {\n    myChangeRequests { id status note createdAt decidedAt decidedBy lines { field label current requested } }\n  }\n": types.MyChangeRequestsDocument,
     "\n  mutation UpdateMyDetails($input: MyDetailsInput!) {\n    updateMyDetails(input: $input) { applied request { id } errors { field message } }\n  }\n": types.UpdateMyDetailsDocument,
     "\n  mutation CancelChangeRequest($id: ID!) {\n    cancelChangeRequest(id: $id) { request { id status } errors { field message } }\n  }\n": types.CancelChangeRequestDocument,
+    "\n  query HomeData {\n    home {\n      celebrations { kind date years person { id fullName jobTitle photoUrl } }\n      newHires { hireDate person { id fullName jobTitle photoUrl } }\n      myStuff { trainings certifications certificationsExpiring benefits openTasks }\n      directReports { notes outToday person { id fullName jobTitle photoUrl } }\n      insights {\n        headcount { month value }\n        leavers { month value }\n        turnoverRate\n        byLocation { label value }\n        pendingUrgent pendingOther withoutPayRaise\n        onboarding { inProgress withOverdue startingSoon }\n      }\n    }\n    announcements(limit: 10) { id title body authorName publishedAt pinned }\n    companyLinks { id group label url }\n    homeLayout { key hidden }\n  }\n": types.HomeDataDocument,
+    "\n  query HomeApprovals {\n    leaveApprovals { id startDate endDate days createdAt canDecide employee { id fullName } leaveType { name color } }\n  }\n": types.HomeApprovalsDocument,
+    "\n  query HomeChanges {\n    pendingChangeRequests { id employeeId employeeName createdAt canDecide }\n  }\n": types.HomeChangesDocument,
+    "\n  mutation HomeDecideLeave($input: DecideLeaveInput!) {\n    decideLeave(input: $input) { request { id status } errors { field message } }\n  }\n": types.HomeDecideLeaveDocument,
+    "\n  mutation SaveAnnouncement($input: AnnouncementInput!) {\n    saveAnnouncement(input: $input) { announcement { id } errors { field message } }\n  }\n": types.SaveAnnouncementDocument,
+    "\n  mutation DeleteAnnouncement($id: ID!) {\n    deleteAnnouncement(id: $id)\n  }\n": types.DeleteAnnouncementDocument,
+    "\n  query HomeWhosOut($day: Date!) {\n    leaveCalendar(start: $day, end: $day) { absences { requestId status employee { id fullName } leaveType { name } } }\n  }\n": types.HomeWhosOutDocument,
+    "\n  mutation SaveCompanyLinks($links: [CompanyLinkInput!]!) {\n    saveCompanyLinks(links: $links) { links { id } errors { field message } }\n  }\n": types.SaveCompanyLinksDocument,
+    "\n  query HomeTimeOffUsed($leaveTypeId: ID!) {\n    timeOffUsed(leaveTypeId: $leaveTypeId) { month value }\n  }\n": types.HomeTimeOffUsedDocument,
+    "\n  query HomeLeaveTypes {\n    leaveTypes { id name }\n  }\n": types.HomeLeaveTypesDocument,
+    "\n  mutation SaveHomeLayout($widgets: JSON!) {\n    saveHomeLayout(widgets: $widgets) { key hidden }\n  }\n": types.SaveHomeLayoutDocument,
     "\n  query EmployeeLeave($employeeId: ID) {\n    employeeLeave(employeeId: $employeeId) {\n      employee { id fullName }\n      balances {\n        leaveType { id name color tracksBalance allowHalfDays isPaid }\n        policyName entitlement balance pending available takenThisYear\n      }\n      requests {\n        id startDate endDate halfDay days reason status createdAt canCancel canDecide\n        leaveType { id name color }\n        approvals { level status note overridden actedBy actedAt approver { id fullName } }\n      }\n      ledger { id date kind amount reason leaveType { name } }\n    }\n  }\n": types.EmployeeLeaveDocument,
     "\n  mutation CancelLeave($id: ID!) {\n    cancelLeave(id: $id) {\n      request { id status }\n      errors { field message }\n    }\n  }\n": types.CancelLeaveDocument,
     "\n  query LeaveQuote($leaveTypeId: ID!, $startDate: Date!, $endDate: Date!, $halfDay: Boolean!, $employeeId: ID) {\n    leaveQuote(leaveTypeId: $leaveTypeId, startDate: $startDate, endDate: $endDate, halfDay: $halfDay, employeeId: $employeeId) {\n      days available availableAfter\n      errors { field message }\n    }\n  }\n": types.LeaveQuoteDocument,
@@ -343,19 +361,11 @@ export function graphql(source: "\n  mutation DecideChangeRequest($id: ID!, $app
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query Home($start: Date!, $end: Date!, $year: Int!, $next: Int!) {\n    leaveApprovals { id startDate endDate days employee { fullName } leaveType { name color } }\n    leaveCalendar(start: $start, end: $end) {\n      absences { requestId startDate endDate halfDay status employee { id fullName } leaveType { name color } }\n    }\n    thisYear: publicHolidays(year: $year) { id name date location { name } }\n    nextYear: publicHolidays(year: $next) { id name date location { name } }\n  }\n"): (typeof documents)["\n  query Home($start: Date!, $end: Date!, $year: Int!, $next: Int!) {\n    leaveApprovals { id startDate endDate days employee { fullName } leaveType { name color } }\n    leaveCalendar(start: $start, end: $end) {\n      absences { requestId startDate endDate halfDay status employee { id fullName } leaveType { name color } }\n    }\n    thisYear: publicHolidays(year: $year) { id name date location { name } }\n    nextYear: publicHolidays(year: $next) { id name date location { name } }\n  }\n"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "\n  query HomeStats {\n    peopleStats { headcount joinersThisMonth leaversThisMonth onProbation awayToday pendingLeaveRequests }\n  }\n"): (typeof documents)["\n  query HomeStats {\n    peopleStats { headcount joinersThisMonth leaversThisMonth onProbation awayToday pendingLeaveRequests }\n  }\n"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "\n  query HomeExpiring {\n    expiringDocuments(withinDays: 30) { id }\n  }\n"): (typeof documents)["\n  query HomeExpiring {\n    expiringDocuments(withinDays: 30) { id }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query HomeTeam($managerId: ID!) {\n    directory(managerId: $managerId, first: 100) { nodes { id fullName jobTitle } }\n  }\n"): (typeof documents)["\n  query HomeTeam($managerId: ID!) {\n    directory(managerId: $managerId, first: 100) { nodes { id fullName jobTitle } }\n  }\n"];
+export function graphql(source: "\n  query HomeMyPhoto($id: ID!) {\n    employee(id: $id) { id photoUrl }\n  }\n"): (typeof documents)["\n  query HomeMyPhoto($id: ID!) {\n    employee(id: $id) { id photoUrl }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -624,6 +634,50 @@ export function graphql(source: "\n  mutation UpdateMyDetails($input: MyDetailsI
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation CancelChangeRequest($id: ID!) {\n    cancelChangeRequest(id: $id) { request { id status } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation CancelChangeRequest($id: ID!) {\n    cancelChangeRequest(id: $id) { request { id status } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query HomeData {\n    home {\n      celebrations { kind date years person { id fullName jobTitle photoUrl } }\n      newHires { hireDate person { id fullName jobTitle photoUrl } }\n      myStuff { trainings certifications certificationsExpiring benefits openTasks }\n      directReports { notes outToday person { id fullName jobTitle photoUrl } }\n      insights {\n        headcount { month value }\n        leavers { month value }\n        turnoverRate\n        byLocation { label value }\n        pendingUrgent pendingOther withoutPayRaise\n        onboarding { inProgress withOverdue startingSoon }\n      }\n    }\n    announcements(limit: 10) { id title body authorName publishedAt pinned }\n    companyLinks { id group label url }\n    homeLayout { key hidden }\n  }\n"): (typeof documents)["\n  query HomeData {\n    home {\n      celebrations { kind date years person { id fullName jobTitle photoUrl } }\n      newHires { hireDate person { id fullName jobTitle photoUrl } }\n      myStuff { trainings certifications certificationsExpiring benefits openTasks }\n      directReports { notes outToday person { id fullName jobTitle photoUrl } }\n      insights {\n        headcount { month value }\n        leavers { month value }\n        turnoverRate\n        byLocation { label value }\n        pendingUrgent pendingOther withoutPayRaise\n        onboarding { inProgress withOverdue startingSoon }\n      }\n    }\n    announcements(limit: 10) { id title body authorName publishedAt pinned }\n    companyLinks { id group label url }\n    homeLayout { key hidden }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query HomeApprovals {\n    leaveApprovals { id startDate endDate days createdAt canDecide employee { id fullName } leaveType { name color } }\n  }\n"): (typeof documents)["\n  query HomeApprovals {\n    leaveApprovals { id startDate endDate days createdAt canDecide employee { id fullName } leaveType { name color } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query HomeChanges {\n    pendingChangeRequests { id employeeId employeeName createdAt canDecide }\n  }\n"): (typeof documents)["\n  query HomeChanges {\n    pendingChangeRequests { id employeeId employeeName createdAt canDecide }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation HomeDecideLeave($input: DecideLeaveInput!) {\n    decideLeave(input: $input) { request { id status } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation HomeDecideLeave($input: DecideLeaveInput!) {\n    decideLeave(input: $input) { request { id status } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SaveAnnouncement($input: AnnouncementInput!) {\n    saveAnnouncement(input: $input) { announcement { id } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation SaveAnnouncement($input: AnnouncementInput!) {\n    saveAnnouncement(input: $input) { announcement { id } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteAnnouncement($id: ID!) {\n    deleteAnnouncement(id: $id)\n  }\n"): (typeof documents)["\n  mutation DeleteAnnouncement($id: ID!) {\n    deleteAnnouncement(id: $id)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query HomeWhosOut($day: Date!) {\n    leaveCalendar(start: $day, end: $day) { absences { requestId status employee { id fullName } leaveType { name } } }\n  }\n"): (typeof documents)["\n  query HomeWhosOut($day: Date!) {\n    leaveCalendar(start: $day, end: $day) { absences { requestId status employee { id fullName } leaveType { name } } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SaveCompanyLinks($links: [CompanyLinkInput!]!) {\n    saveCompanyLinks(links: $links) { links { id } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation SaveCompanyLinks($links: [CompanyLinkInput!]!) {\n    saveCompanyLinks(links: $links) { links { id } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query HomeTimeOffUsed($leaveTypeId: ID!) {\n    timeOffUsed(leaveTypeId: $leaveTypeId) { month value }\n  }\n"): (typeof documents)["\n  query HomeTimeOffUsed($leaveTypeId: ID!) {\n    timeOffUsed(leaveTypeId: $leaveTypeId) { month value }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query HomeLeaveTypes {\n    leaveTypes { id name }\n  }\n"): (typeof documents)["\n  query HomeLeaveTypes {\n    leaveTypes { id name }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SaveHomeLayout($widgets: JSON!) {\n    saveHomeLayout(widgets: $widgets) { key hidden }\n  }\n"): (typeof documents)["\n  mutation SaveHomeLayout($widgets: JSON!) {\n    saveHomeLayout(widgets: $widgets) { key hidden }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
