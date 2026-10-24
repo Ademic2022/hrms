@@ -17,6 +17,8 @@
   --brand-ink: var(--brand);
   /* Charts: series slot 1 and recessive chrome, validated against --surface (see components/home/Charts.tsx). */
   --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
   --grid: #ecece6;
   --axis: #d3d3cb;
 }
@@ -35,6 +37,8 @@
     --shadow-lg: 0 24px 48px -12px rgba(0, 0, 0, 0.6);
     --brand-ink: color-mix(in srgb, var(--brand), white 55%);
     --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
     --grid: #232929;
     --axis: #394040;
   }

@@ -147,6 +147,12 @@ type Celebration {
   years: Int
 }
 
+type CertificationSummary {
+  name: String!
+  people: Int!
+  soonest: Date!
+}
+
 input ChangeCompensationInput {
   id: ID!
   effectiveDate: Date!
@@ -211,6 +217,9 @@ input ChangeStatusInput {
   status: EmployeeStatus!
   effectiveDate: Date = null
   reason: String = null
+
+  """When leaving: why, for turnover."""
+  terminationKind: TerminationKind = null
 }
 
 type Checklist {
@@ -554,6 +563,7 @@ type Employee {
   The employee's sign-in and roles. Null without users.manage or a linked user.
   """
   access: AccountAccess
+  terminationKind: TerminationKind
 
   """Lifecycle statuses over time, newest first."""
   statusHistory: [StatusRecord!]!
@@ -746,13 +756,27 @@ type HomeWidget {
 }
 
 type Insights {
-  """People employed at each month end, last 12 months."""
-  headcount: [MonthValue!]!
-  leavers: [MonthValue!]!
+  """The last 12 months, oldest first."""
+  months: [MonthStat!]!
+  headcount: Int!
+
+  """Headcount now less headcount 12 months ago."""
+  change: Int!
+  changePercent: Decimal
+  additions: Int!
+  terminations: Int!
 
   """Leavers in the last 12 months over average headcount, as a percentage."""
   turnoverRate: Decimal!
   byLocation: [LabelValue!]!
+  byDepartment: [LabelValue!]!
+  byEmploymentType: [LabelValue!]!
+  byGender: [LabelValue!]!
+  byAge: [LabelValue!]!
+  benefitEnrollments: [LabelValue!]!
+
+  """Expired or expiring within 60 days."""
+  expiringCertifications: [CertificationSummary!]!
 
   """Pending leave starting within 7 days."""
   pendingUrgent: Int!
@@ -924,6 +948,9 @@ enum LeaveLedgerKind {
 type LeavePerson {
   id: ID!
   fullName: String!
+
+  """A ten-minute link to their photo, or null."""
+  photoUrl: String
 }
 
 type LeavePolicy {
@@ -1113,6 +1140,22 @@ type MfaSetup {
   qrSvg: String!
 }
 
+type MonthStat {
+  """"2026-10"."""
+  month: String!
+
+  """Employed at the month end (today for this month)."""
+  headcount: Int!
+  additions: Int!
+  terminations: Int!
+  voluntary: Int!
+  involuntary: Int!
+  other: Int!
+
+  """Leavers over the month's average headcount, as a percentage."""
+  turnoverRate: Decimal!
+}
+
 type MonthValue {
   """"2026-10"."""
   month: String!
@@ -1254,6 +1297,9 @@ type Mutation {
   """Replace the company links, in the order given."""
   saveCompanyLinks(links: [CompanyLinkInput!]!): CompanyLinksPayload!
 
+  """Clear an item from your What's happening feed."""
+  dismissFeedItem(key: String!): Boolean!
+
   """Save your home widgets: order and which are hidden."""
   saveHomeLayout(widgets: JSON!): [HomeWidget!]!
 }
@@ -1340,7 +1386,9 @@ type NotificationConnection {
 type OnboardingSummary {
   inProgress: Int!
   withOverdue: Int!
-  startingSoon: Int!
+
+  """People starting in the next 30 days, by start date."""
+  starting: [StartGroup!]!
 }
 
 enum OvertimeStatus {
@@ -1479,6 +1527,11 @@ type Query {
   employeeLeave(employeeId: ID = null): EmployeeLeave!
 
   """
+  What a balance will be on a future date, after the accruals due by then.
+  """
+  projectedLeaveBalance(leaveTypeId: ID!, on: Date!, employeeId: ID = null): LeaveBalance!
+
+  """
   One leave type's balance history with a running balance, as BambooHR shows it.
   """
   leaveHistory(leaveTypeId: ID!, employeeId: ID = null, year: Int = null): LeaveHistory!
@@ -1572,6 +1625,9 @@ type Query {
 
   """Your home widgets in order, including hidden ones."""
   homeLayout: [HomeWidget!]!
+
+  """Feed items you cleared from What's happening."""
+  dismissedFeed: [String!]!
 }
 
 type RecoveryCodesPayload {
@@ -1840,6 +1896,11 @@ type SignUpPayload {
   errors: [FieldError!]!
 }
 
+type StartGroup {
+  date: Date!
+  people: [HomePerson!]!
+}
+
 type StatusRecord {
   id: ID!
   effectiveDate: Date!
@@ -1919,6 +1980,12 @@ type TenureStep {
 input TenureStepInput {
   years: Int!
   extraDays: Decimal!
+}
+
+enum TerminationKind {
+  VOLUNTARY
+  INVOLUNTARY
+  OTHER
 }
 
 input UpdateDocumentInput {

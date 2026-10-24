@@ -400,6 +400,7 @@ const statusSchema = z.object({
   status: z.enum(["CANDIDATE", "PROBATION", "ACTIVE", "ON_LEAVE", "TERMINATED"]),
   effectiveDate: z.iso.date("Choose a date."),
   reason: z.string().trim().max(255),
+  terminationKind: z.enum(["VOLUNTARY", "INVOLUNTARY", "OTHER"]),
 }).refine((v) => v.status !== "TERMINATED" || v.reason.length > 0, {
   path: ["reason"], message: "Give a reason for leaving. It is kept on the record.",
 });
@@ -412,14 +413,17 @@ export function ChangeStatusDialog({ employee: e, onClose, onSaved }: DialogProp
   const options = NEXT_STATUSES[e.status];
   const { register, handleSubmit, control, setError, formState: { errors, isSubmitting } } = useForm<StatusValues>({
     resolver: zodResolver(statusSchema),
-    defaultValues: { status: options[0]?.value, effectiveDate: today(), reason: "" },
+    defaultValues: { status: options[0]?.value, effectiveDate: today(), reason: "", terminationKind: "VOLUNTARY" },
   });
   const status = useWatch({ control, name: "status" });
   const leaving = status === "TERMINATED";
 
   async function onSubmit(v: StatusValues) {
     setFormError(undefined);
-    const result = await changeStatus({ input: { id: e.id, status: v.status, effectiveDate: v.effectiveDate, reason: v.reason || null } });
+    const result = await changeStatus({ input: {
+      id: e.id, status: v.status, effectiveDate: v.effectiveDate, reason: v.reason || null,
+      terminationKind: v.status === "TERMINATED" ? v.terminationKind : null,
+    } });
     const failed = reportErrors(result, result.data?.changeEmployeeStatus.errors, ["status", "effectiveDate", "reason"] as const,
       (f, message) => setError(f, { message }), setFormError);
     if (!failed) onSaved();
@@ -443,6 +447,15 @@ export function ChangeStatusDialog({ employee: e, onClose, onSaved }: DialogProp
         <Field label={leaving ? "Last working day" : "Effective from"} error={errors.effectiveDate?.message}>
           <Input type="date" aria-invalid={!!errors.effectiveDate} {...register("effectiveDate")} />
         </Field>
+        {leaving && (
+          <Field label="Type of leaving" hint="Counted in turnover as voluntary, involuntary or other.">
+            <Select {...register("terminationKind")}>
+              <option value="VOLUNTARY">Voluntary (resigned)</option>
+              <option value="INVOLUNTARY">Involuntary (dismissed or made redundant)</option>
+              <option value="OTHER">Other (end of contract, retirement, death)</option>
+            </Select>
+          </Field>
+        )}
         <Field label={leaving ? "Reason for leaving" : "Note"} optional={!leaving} error={errors.reason?.message}
           hint={leaving ? "Their direct reports move to their manager. This cannot be undone." : undefined}>
           <Input aria-invalid={!!errors.reason} {...register("reason")} placeholder={leaving ? "Resigned" : undefined} />

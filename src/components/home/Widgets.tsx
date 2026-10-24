@@ -1,26 +1,25 @@
 "use client";
 
 import {
-  faArrowTrendUp, faAward, faBoxOpen, faBullhorn, faCakeCandles, faCertificate, faChartColumn, faChartLine,
-  faChevronLeft, faChevronRight, faClipboardCheck, faClock, faGraduationCap, faHandsClapping, faHeartPulse, faLink,
-  faListCheck, faPen, faPlaneDeparture, faSitemap, faThumbtack, faTriangleExclamation, faUmbrellaBeach, faUserPen,
-  type IconDefinition,
+  faArrowsRotate, faAward, faBoxOpen, faBriefcase, faBuilding, faBullhorn, faCakeCandles, faCalculator, faCalendarDay,
+  faCalendarDays, faCalendarPlus, faCertificate, faChartSimple, faChevronRight, faClipboardCheck, faFaceFrown,
+  faGraduationCap, faHandsClapping, faHeartPulse, faIdCard, faLink, faListCheck, faLocationDot, faPeopleGroup, faPen,
+  faPlaneDeparture, faSitemap, faStopwatch, faThumbtack, faUmbrellaBeach, faUserCheck, faUserMinus, faUserPen, faUserPlus,
+  faUsers, faVenusMars, faXmark, type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "urql";
 
-import { BarList, ColumnChart, LineChart, type Point } from "@/components/home/Charts";
+import { BarList, ChartTable, DivergingStrip, Legend, MonthColumns, MonthLine, SERIES, TipRow, type Column, type Series } from "@/components/home/Charts";
 import type { LeaveBalanceRow } from "@/components/leave/Leave";
-import {
-  ActionDialog, Avatar, Badge, Button, Checkbox, Dialog, ErrorNote, Field, IconButton, Input, Select, Textarea, cx,
-} from "@/components/ui";
+import { ActionDialog, Button, Checkbox, Dialog, ErrorNote, Field, IconButton, Input, Select, Textarea, cx } from "@/components/ui";
 import { graphql } from "@/gql";
 import type { HomeDataQuery } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
 import { formatDate, formatDays, formatRange } from "@/lib/format";
-import { reportErrors } from "@/lib/forms";
+import { reportErrors, today } from "@/lib/forms";
 
 export const HomeDataDocument = graphql(`
   query HomeData {
@@ -30,17 +29,19 @@ export const HomeDataDocument = graphql(`
       myStuff { trainings certifications certificationsExpiring benefits openTasks }
       directReports { notes outToday person { id fullName jobTitle photoUrl } }
       insights {
-        headcount { month value }
-        leavers { month value }
-        turnoverRate
-        byLocation { label value }
+        months { month headcount additions terminations voluntary involuntary other turnoverRate }
+        headcount change changePercent additions terminations turnoverRate
+        byLocation { label value } byDepartment { label value } byEmploymentType { label value }
+        byGender { label value } byAge { label value } benefitEnrollments { label value }
+        expiringCertifications { name people soonest }
         pendingUrgent pendingOther withoutPayRaise
-        onboarding { inProgress withOverdue startingSoon }
+        onboarding { inProgress withOverdue starting { date people { id fullName jobTitle photoUrl } } }
       }
     }
-    announcements(limit: 10) { id title body authorName publishedAt pinned }
+    announcements(limit: 20) { id title body authorName publishedAt pinned }
     companyLinks { id group label url }
     homeLayout { key hidden }
+    dismissedFeed
   }
 `);
 
@@ -49,58 +50,127 @@ type Announcement = HomeData["announcements"][number];
 type CompanyLink = HomeData["companyLinks"][number];
 type Insights = NonNullable<HomeData["home"]["insights"]>;
 
-/** "2026-10" -> "Oct" */
-export const monthLabel = (month: string) =>
-  new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).toLocaleDateString(undefined, { month: "short" });
-const toPoints = (rows: { month: string; value: string | number }[]): Point[] =>
-  rows.map((r) => ({ label: monthLabel(r.month), value: Number(r.value) }));
+const initialsOf = (name: string) => name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
-/** A home widget: an icon, a serif title in the brand ink, optional actions, and the content. */
-export function Widget({ title, icon, actions, children, className, flush }: {
-  title: string; icon: IconDefinition; actions?: ReactNode; children: ReactNode; className?: string; flush?: boolean;
+/** A square photo with rounded corners, or initials on a tint. */
+export function Photo({ name, src, size = 40, faded, className }: { name: string; src?: string | null; size?: number; faded?: boolean; className?: string }) {
+  const radius = size >= 80 ? "rounded-2xl" : size >= 48 ? "rounded-xl" : "rounded-lg";
+  return (
+    <span className={cx("block flex-none overflow-hidden bg-subtle ring-1 ring-line", radius, faded && "opacity-50", className)} style={{ width: size, height: size }}>
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <span className="grid h-full w-full place-items-center font-display text-muted" style={{ fontSize: size * 0.34 }} aria-hidden>{initialsOf(name)}</span>
+      )}
+    </span>
+  );
+}
+
+/** A home widget: a tinted header bar with a brand icon and title, then the content. */
+export function Widget({ title, icon, actions, children, className, flush, bodyClassName }: {
+  title: string; icon: IconDefinition; actions?: ReactNode; children: ReactNode; className?: string; flush?: boolean; bodyClassName?: string;
 }) {
   return (
     <section className={cx("flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm", className)}>
-      <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
-        <h2 className="flex min-w-0 items-center gap-2.5 font-display text-[19px] font-medium text-brand-ink">
-          <FontAwesomeIcon icon={icon} className="text-[15px]" fixedWidth />
+      <header className="flex min-h-[56px] items-center justify-between gap-3 border-b border-line bg-subtle/60 px-4">
+        <h2 className="flex min-w-0 items-center gap-2.5 text-[18px] font-semibold text-brand-ink">
+          <FontAwesomeIcon icon={icon} className="text-[16px]" fixedWidth />
           <span className="truncate">{title}</span>
         </h2>
-        {actions && <div className="flex flex-none items-center gap-2">{actions}</div>}
+        {actions && <div className="flex flex-none items-center gap-3 text-sm">{actions}</div>}
       </header>
-      <div className={cx("flex-1", flush ? "" : "p-5")}>{children}</div>
+      <div className={cx("flex flex-1 flex-col", flush ? "" : "p-4", bodyClassName)}>{children}</div>
     </section>
   );
 }
 
 const Empty = ({ children }: { children: ReactNode }) => <p className="text-sm text-muted">{children}</p>;
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const monthName = (month: string) => new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).toLocaleDateString(undefined, { month: "short" });
+const longDate = (iso: string, opts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric" }) => new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, opts);
 
 /* ------------------------------------------------------------------ Time off */
 
-export function TimeOffWidget({ balances, onRequest }: { balances: LeaveBalanceRow[]; onRequest: () => void }) {
+const ProjectedDocument = graphql(`
+  query ProjectedLeave($leaveTypeId: ID!, $on: Date!) {
+    projectedLeaveBalance(leaveTypeId: $leaveTypeId, on: $on) { balance pending available }
+  }
+`);
+
+function CalculatorDialog({ balances, initial, onClose }: { balances: LeaveBalanceRow[]; initial: string; onClose: () => void }) {
+  const tracked = balances.filter((b) => b.leaveType.tracksBalance);
+  const [typeId, setTypeId] = useState(initial);
+  const [on, setOn] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    return d.toISOString().slice(0, 10);
+  });
+  const [{ data, error, fetching }] = useQuery({ query: ProjectedDocument, variables: { leaveTypeId: typeId, on }, pause: !typeId || !on || on < today() });
+  const result = data?.projectedLeaveBalance;
+  return (
+    <Dialog open onClose={onClose} title="Calculate future time off" description="See what you will have on a date, with the days you will earn by then."
+      footer={<Button variant="secondary" onClick={onClose}>Done</Button>}>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Leave type">
+          <Select value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+            {tracked.map((b) => <option key={b.leaveType.id} value={b.leaveType.id}>{b.leaveType.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="As of"><Input type="date" min={today()} value={on} onChange={(e) => setOn(e.target.value)} /></Field>
+      </div>
+      <div className="mt-5 rounded-xl bg-subtle px-5 py-4 text-center">
+        {error ? <ErrorNote error={errorMessage(error)} /> : !result || fetching ? <p className="text-sm text-muted">Working it out…</p> : (
+          <>
+            <p className="font-display text-4xl text-brand-ink">{Number(result.available ?? result.balance ?? 0)}</p>
+            <p className="text-sm text-brand-ink">days available on {formatDate(on)}</p>
+            {Number(result.pending) > 0 && <p className="mt-1 text-xs text-muted">After {formatDays(result.pending)} waiting for approval</p>}
+          </>
+        )}
+      </div>
+    </Dialog>
+  );
+}
+
+export function TimeOffWidget({ balances, employeeId, onRequest }: { balances: LeaveBalanceRow[]; employeeId: string; onRequest: () => void }) {
   const tracked = balances.filter((b) => b.available !== null && b.available !== undefined);
   const [index, setIndex] = useState(0);
+  const [calculating, setCalculating] = useState(false);
   const current = tracked[index % Math.max(1, tracked.length)];
+  const href = `/employees/${employeeId}?tab=time_off`;
   return (
-    <Widget title="Time off" icon={faUmbrellaBeach}>
+    <Widget title="Time off" icon={faCalendarDays} bodyClassName="justify-center px-6 py-6">
       {current ? (
-        <div className="flex items-center gap-2">
-          <IconButton label="Previous leave type" onClick={() => setIndex((i) => (i - 1 + tracked.length) % tracked.length)} disabled={tracked.length < 2}>
-            <FontAwesomeIcon icon={faChevronLeft} className="text-xs" />
-          </IconButton>
-          <div className="flex-1 text-center">
-            <p className="text-sm text-muted">{current.leaveType.name}</p>
-            <p className="mt-1 text-5xl font-semibold text-ink">{Number(current.available)}</p>
-            <p className="text-sm text-muted">days available{Number(current.pending) ? ` · ${Number(current.pending)} pending` : ""}</p>
-          </div>
-          <IconButton label="Next leave type" onClick={() => setIndex((i) => (i + 1) % tracked.length)} disabled={tracked.length < 2}>
-            <FontAwesomeIcon icon={faChevronRight} className="text-xs" />
-          </IconButton>
+        <div className="relative text-center">
+          <p className="text-[15px] font-medium text-ink">{current.leaveType.name}</p>
+          <Link href={href} className="group mt-1 inline-flex flex-col items-center text-brand-ink">
+            <span className="flex items-center gap-3">
+              <FontAwesomeIcon icon={faUmbrellaBeach} className="text-[30px]" />
+              <span className="font-display text-[40px] leading-none group-hover:underline">{Number(current.available)}</span>
+            </span>
+            <span className="mt-1 text-[15px] group-hover:underline">days available</span>
+          </Link>
+          {tracked.length > 1 && (
+            <button type="button" onClick={() => setIndex((i) => (i + 1) % tracked.length)} aria-label="Next leave type"
+              className="absolute right-0 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-line-strong bg-surface text-ink hover:bg-subtle">
+              <FontAwesomeIcon icon={faChevronRight} className="text-[11px]" />
+            </button>
+          )}
         </div>
       ) : <Empty>No leave balance to show.</Empty>}
-      <div className="mt-5 flex justify-center">
-        <Button variant="secondary" icon={<FontAwesomeIcon icon={faUmbrellaBeach} className="text-[13px]" />} onClick={onRequest}>Request time off</Button>
+      <div className="mt-5 flex items-center justify-center gap-3">
+        <button type="button" onClick={onRequest}
+          className="inline-flex h-12 flex-1 items-center justify-center gap-2.5 rounded-full border border-brand-ink px-5 text-[16px] font-semibold text-brand-ink hover:bg-subtle">
+          <FontAwesomeIcon icon={faCalendarPlus} /> Request time off
+        </button>
+        {current && (
+          <button type="button" onClick={() => setCalculating(true)} aria-label="Calculate future time off"
+            className="grid h-12 w-14 flex-none place-items-center rounded-full border border-brand-ink text-brand-ink hover:bg-subtle">
+            <FontAwesomeIcon icon={faCalculator} />
+          </button>
+        )}
       </div>
+      {calculating && current && <CalculatorDialog balances={balances} initial={current.leaveType.id} onClose={() => setCalculating(false)} />}
     </Widget>
   );
 }
@@ -109,13 +179,11 @@ export function TimeOffWidget({ balances, onRequest }: { balances: LeaveBalanceR
 
 function StuffRow({ href, icon, title, detail }: { href: string; icon: IconDefinition; title: string; detail: ReactNode }) {
   return (
-    <Link href={href} className="group flex items-center gap-3 rounded-lg px-1 py-2.5 hover:bg-subtle">
-      <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-subtle text-brand-ink group-hover:bg-surface">
-        <FontAwesomeIcon icon={icon} />
-      </span>
+    <Link href={href} className="group flex items-center gap-3.5 py-3">
+      <span className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-subtle text-[17px] text-brand-ink"><FontAwesomeIcon icon={icon} /></span>
       <span className="min-w-0">
-        <span className="block text-[15px] font-medium text-ink">{title}</span>
-        <span className="block text-xs text-muted">{detail}</span>
+        <span className="block text-[15px] font-semibold text-ink group-hover:text-brand-ink group-hover:underline">{title}</span>
+        <span className="block text-[13px] text-muted">{detail}</span>
       </span>
     </Link>
   );
@@ -123,15 +191,13 @@ function StuffRow({ href, icon, title, detail }: { href: string; icon: IconDefin
 
 export function MyStuffWidget({ stuff, employeeId }: { stuff: NonNullable<HomeData["home"]["myStuff"]>; employeeId: string }) {
   const base = `/employees/${employeeId}?tab=`;
-  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   return (
-    <Widget title="My stuff" icon={faBoxOpen}>
-      <div className="-my-1 divide-y divide-line">
-        <StuffRow href={`${base}onboarding`} icon={faListCheck} title="My tasks"
-          detail={stuff.openTasks ? `${plural(stuff.openTasks, "task")} to do` : "Nothing to do"} />
+    <Widget title="My stuff" icon={faBoxOpen} bodyClassName="py-1">
+      <div className="divide-y divide-line">
+        <StuffRow href={`${base}onboarding`} icon={faListCheck} title="Tasks" detail={stuff.openTasks ? `${plural(stuff.openTasks, "task")} to do` : "Nothing to do"} />
         <StuffRow href={`${base}training`} icon={faGraduationCap} title="Training" detail={stuff.trainings ? `${plural(stuff.trainings, "course")} completed` : "No training recorded"} />
         <StuffRow href={`${base}certifications`} icon={faCertificate} title="Certifications"
-          detail={stuff.certificationsExpiring ? <span className="text-red-600">{plural(stuff.certificationsExpiring, "certification")} expiring soon</span>
+          detail={stuff.certificationsExpiring ? <span className="text-red-600 dark:text-red-400">{plural(stuff.certificationsExpiring, "certification")} expiring soon</span>
             : stuff.certifications ? `${plural(stuff.certifications, "certification")}, none expiring soon` : "None recorded"} />
         <StuffRow href={`${base}benefits`} icon={faHeartPulse} title="Benefits"
           detail={stuff.benefits ? `You are enrolled in ${plural(stuff.benefits, "benefit plan")}` : "Not enrolled yet"} />
@@ -144,7 +210,7 @@ export function MyStuffWidget({ stuff, employeeId }: { stuff: NonNullable<HomeDa
 
 const ApprovalsDocument = graphql(`
   query HomeApprovals {
-    leaveApprovals { id startDate endDate days createdAt canDecide employee { id fullName } leaveType { name color } }
+    leaveApprovals { id startDate endDate days createdAt canDecide employee { id fullName photoUrl } leaveType { name color } }
   }
 `);
 
@@ -160,25 +226,36 @@ const DecideDocument = graphql(`
   }
 `);
 
-type FeedItem = { key: string; at: string; avatar?: string; icon?: IconDefinition; body: ReactNode; when: string; actions?: ReactNode };
+const DismissDocument = graphql(`
+  mutation DismissFeedItem($key: String!) {
+    dismissFeedItem(key: $key)
+  }
+`);
+
+type FeedItem = {
+  key: string; at: string; when: string; body: ReactNode; href?: string; onOpen?: () => void;
+  avatar?: { name: string; src?: string | null }; icon?: IconDefinition; actions?: ReactNode;
+};
 
 function ago(iso: string) {
-  const then = new Date(iso).getTime();
-  const days = Math.round((Date.now() - then) / 86_400_000);
+  const days = Math.round((Date.now() - new Date(iso).getTime()) / 86_400_000);
   if (days < 0) return days === -1 ? "Tomorrow" : `In ${-days} days`;
   if (days === 0) return "Today";
   if (days === 1) return "Yesterday";
   if (days < 30) return `${days} days ago`;
+  if (days < 365) return `${Math.round(days / 30)} ${Math.round(days / 30) === 1 ? "month" : "months"} ago`;
   return formatDate(iso.slice(0, 10));
 }
 
-export function HappeningWidget({ announcements, newHires, canPost, canSeeChanges, onChanged, onOpen, onPost }: {
-  announcements: Announcement[]; newHires: HomeData["home"]["newHires"]; canPost: boolean; canSeeChanges: boolean;
-  onChanged: (message: string) => void; onOpen: (a: Announcement) => void; onPost: () => void;
+export function HappeningWidget({ company, announcements, newHires, dismissed, canPost, canSeeChanges, onChanged, onOpen, onPost, onAll }: {
+  company: string; announcements: Announcement[]; newHires: HomeData["home"]["newHires"]; dismissed: string[]; canPost: boolean;
+  canSeeChanges: boolean; onChanged: (message: string) => void; onOpen: (a: Announcement) => void; onPost: () => void; onAll: () => void;
 }) {
   const [{ data: approvals }, reloadApprovals] = useQuery({ query: ApprovalsDocument });
   const [{ data: changes }] = useQuery({ query: ChangesDocument, pause: !canSeeChanges });
   const [, decide] = useMutation(DecideDocument);
+  const [, dismiss] = useMutation(DismissDocument);
+  const [hidden, setHidden] = useState<string[]>(dismissed);
   const [denying, setDenying] = useState<{ id: string; name: string } | null>(null);
   const [problem, setProblem] = useState<string>();
 
@@ -190,56 +267,75 @@ export function HappeningWidget({ announcements, newHires, canPost, canSeeChange
     reloadApprovals({ requestPolicy: "network-only" });
     onChanged("Leave approved.");
   }
+  function clear(key: string) {
+    setHidden((h) => [...h, key]);
+    void dismiss({ key });
+  }
 
+  const now = new Date().toISOString();
   const items: FeedItem[] = [
-    ...announcements.map((a): FeedItem => ({
-      key: `a${a.id}`, at: a.publishedAt, icon: a.pinned ? faThumbtack : faBullhorn, when: ago(a.publishedAt),
-      body: (
-        <button type="button" onClick={() => onOpen(a)} className="text-left hover:underline">
-          {a.authorName} posted an announcement <strong className="font-semibold">{a.title}</strong>
-        </button>
-      ),
+    ...announcements.filter((a) => a.publishedAt <= now).map((a): FeedItem => ({
+      key: `a${a.id}`, at: a.publishedAt, when: ago(a.publishedAt), icon: a.pinned ? faThumbtack : faBullhorn, onOpen: () => onOpen(a),
+      body: <>{a.authorName} posted an announcement <strong className="font-semibold">{a.title}</strong></>,
+      actions: <Button size="sm" variant="secondary" className="rounded-full" onClick={() => onOpen(a)}>View announcement</Button>,
     })),
     ...(approvals?.leaveApprovals ?? []).filter((r) => r.canDecide).map((r): FeedItem => ({
-      key: `l${r.id}`, at: r.createdAt, when: ago(r.createdAt), avatar: r.employee.fullName,
+      key: `l${r.id}`, at: r.createdAt, when: ago(r.createdAt), avatar: { name: r.employee.fullName, src: r.employee.photoUrl },
+      href: "/leave/approvals",
       body: <>{r.employee.fullName} requested <strong className="font-semibold">{formatRange(r.startDate, r.endDate)}</strong> off – {formatDays(r.days)} of {r.leaveType.name}</>,
       actions: (
         <>
-          <Button size="sm" variant="secondary" onClick={() => void approve(r.id)}>Approve</Button>
-          <Button size="sm" variant="ghost" onClick={() => setDenying({ id: r.id, name: r.employee.fullName })}>Deny</Button>
+          <Button size="sm" className="rounded-full" onClick={() => void approve(r.id)}>Approve</Button>
+          <Button size="sm" variant="secondary" className="rounded-full" onClick={() => setDenying({ id: r.id, name: r.employee.fullName })}>Deny</Button>
         </>
       ),
     })),
     ...(changes?.pendingChangeRequests ?? []).filter((c) => c.canDecide).map((c): FeedItem => ({
-      key: `c${c.id}`, at: c.createdAt, when: ago(c.createdAt), icon: faUserPen,
-      body: <Link href="/employees/requests" className="hover:underline">{c.employeeName} is requesting an update to their personal information.</Link>,
+      key: `c${c.id}`, at: c.createdAt, when: ago(c.createdAt), icon: faUserPen, href: "/employees/requests",
+      body: <>{c.employeeName} is requesting an update to their personal information.</>,
+      actions: <Link href="/employees/requests" className="inline-flex h-8 items-center rounded-full border border-line-strong px-3 text-sm font-medium text-ink hover:bg-subtle">Review</Link>,
     })),
-    ...newHires.map((h): FeedItem => ({
-      key: `h${h.person.id}`, at: `${h.hireDate}T08:00:00`, when: ago(`${h.hireDate}T08:00:00`), avatar: h.person.fullName,
-      body: <Link href={`/employees/${h.person.id}`} className="hover:underline">{h.person.fullName} {new Date(`${h.hireDate}T00:00:00`) > new Date() ? "joins" : "joined"}{h.person.jobTitle ? ` as ${h.person.jobTitle}` : ""}.</Link>,
+    ...newHires.filter((h) => h.hireDate <= now.slice(0, 10)).map((h): FeedItem => ({
+      key: `h${h.person.id}`, at: `${h.hireDate}T08:00:00`, when: ago(`${h.hireDate}T08:00:00`), avatar: { name: h.person.fullName, src: h.person.photoUrl },
+      href: `/employees/${h.person.id}`,
+      body: <>{h.person.fullName} joined{h.person.jobTitle ? <> as <strong className="font-semibold">{h.person.jobTitle}</strong></> : null}.</>,
     })),
-  ].sort((a, b) => b.at.localeCompare(a.at));
+  ].filter((i) => !hidden.includes(i.key)).sort((a, b) => b.at.localeCompare(a.at));
 
+  const published = announcements.filter((a) => a.publishedAt <= now).length;
   return (
-    <Widget title="What's happening" icon={faBullhorn} flush className="lg:col-span-2 lg:row-span-2"
-      actions={canPost ? <Button size="sm" variant="ghost" onClick={onPost}>Post announcement</Button> : undefined}>
+    <Widget title={`What's happening at ${company}`} icon={faBullhorn} flush className="[&_h2]:text-[16px]"
+      actions={<>
+        {canPost && <button type="button" onClick={onPost} className="font-medium text-brand-ink hover:underline">Post</button>}
+        {published > 0 && <button type="button" onClick={onAll} className="font-medium text-brand-ink hover:underline">Announcements ({published})</button>}
+      </>}>
       {problem && <div className="px-5 pt-4"><ErrorNote error={problem} /></div>}
-      {items.length ? (
-        <ul className="max-h-[460px] divide-y divide-line overflow-y-auto">
-          {items.map((i) => (
-            <li key={i.key} className="flex gap-3 px-5 py-3.5">
-              {i.avatar ? <Avatar name={i.avatar} /> : (
-                <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-subtle text-muted"><FontAwesomeIcon icon={i.icon ?? faBullhorn} className="text-[13px]" /></span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-[15px] leading-snug text-ink">{i.body}</p>
-                <p className="mt-0.5 text-xs text-muted">{i.when}</p>
-                {i.actions && <div className="mt-2 flex gap-2">{i.actions}</div>}
-              </div>
-            </li>
-          ))}
+      <div className="relative min-h-[380px] flex-1">
+        <ul className="absolute inset-0 overflow-y-auto px-5">
+          {items.map((i) => {
+            const text = <span className="text-[15px] leading-snug text-ink group-hover:text-brand-ink group-hover:underline">{i.body}</span>;
+            return (
+              <li key={i.key} className="group flex items-center gap-3.5 border-b border-line py-3.5 last:border-0">
+                {i.avatar ? <Photo name={i.avatar.name} src={i.avatar.src} size={42} /> : (
+                  <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-lg bg-subtle text-muted"><FontAwesomeIcon icon={i.icon ?? faBullhorn} /></span>
+                )}
+                <div className="min-w-0 flex-1">
+                  {i.onOpen ? <button type="button" onClick={i.onOpen} className="text-left">{text}</button>
+                    : i.href ? <Link href={i.href}>{text}</Link> : text}
+                  <p className="mt-0.5 text-[13px] text-muted">{i.when}</p>
+                </div>
+                <div className="hidden flex-none items-center gap-2 group-hover:flex group-focus-within:flex max-lg:flex">
+                  {i.actions}
+                  <IconButton label="Clear from feed" className="rounded-full border border-line-strong" onClick={() => clear(i.key)}>
+                    <FontAwesomeIcon icon={faXmark} className="text-sm" />
+                  </IconButton>
+                </div>
+              </li>
+            );
+          })}
+          {!items.length && <li className="py-5 text-sm text-muted">You are all caught up.</li>}
         </ul>
-      ) : <p className="px-5 py-5 text-sm text-muted">Nothing new right now.</p>}
+      </div>
       {denying && <DenyDialog {...denying} onClose={() => setDenying(null)}
         onDone={() => { setDenying(null); reloadApprovals({ requestPolicy: "network-only" }); onChanged("Leave declined."); }} />}
     </Widget>
@@ -262,10 +358,10 @@ function DenyDialog({ id, name, onClose, onDone }: { id: string; name: string; o
     else onDone();
   }
   return (
-    <Dialog open onClose={onClose} title={`Decline ${name}'s request?`}
+    <Dialog open onClose={onClose} title={`Deny ${name}'s request?`}
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-        <Button type="submit" form="deny-form" busy={busy}>Decline</Button>
+        <Button type="submit" form="deny-form" variant="danger" busy={busy}>Deny request</Button>
       </>}>
       <form id="deny-form" onSubmit={submit} noValidate>
         <Field label="Reason" error={error}><Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
@@ -314,8 +410,8 @@ export function AnnouncementDialog({ announcement, onClose, onSaved }: { announc
   }
 
   return (
-    <Dialog open wide onClose={onClose} title={announcement ? "Edit announcement" : "Post an announcement"}
-      description="Everyone sees it on their home page."
+    <Dialog open wide onClose={onClose} title={announcement ? "Edit announcement" : "New announcement"}
+      description="Everyone sees it in What's happening on their home page."
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
         <Button type="submit" form="announcement-form" busy={busy}>{announcement ? "Save" : v.publishAt ? "Schedule" : "Post"}</Button>
@@ -361,77 +457,223 @@ export function ReadAnnouncementDialog({ announcement, canEdit, onClose, onEdit,
   );
 }
 
-/* -------------------------------------------------------------- Direct reports */
-
-export function DirectReportsWidget({ reports }: { reports: HomeData["home"]["directReports"] }) {
+export function AllAnnouncementsDialog({ announcements, canEdit, onClose, onOpen }: {
+  announcements: Announcement[]; canEdit: boolean; onClose: () => void; onOpen: (a: Announcement) => void;
+}) {
+  const now = new Date().toISOString();
+  const shown = announcements.filter((a) => canEdit || a.publishedAt <= now);
   return (
-    <Widget title="My direct reports" icon={faSitemap} className="lg:col-span-3">
-      <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-5">
-        {reports.map((r) => (
-          <li key={r.person.id} className="text-center">
-            <Link href={`/employees/${r.person.id}`} className="group inline-block">
-              <span className={cx("mx-auto block h-20 w-20 overflow-hidden rounded-2xl bg-subtle ring-1 ring-line", r.outToday && "opacity-50")}>
-                {r.person.photoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.person.photoUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <span className="grid h-full w-full place-items-center font-display text-2xl text-muted">
-                    {r.person.fullName.split(" ").map((w) => w[0]).slice(0, 2).join("")}
-                  </span>
-                )}
+    <Dialog open wide onClose={onClose} title="Announcements" footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
+      <ul className="-my-2 divide-y divide-line">
+        {shown.map((a) => (
+          <li key={a.id}>
+            <button type="button" onClick={() => onOpen(a)} className="group block w-full py-3 text-left">
+              <span className="flex items-center gap-2 text-[15px] font-semibold text-ink group-hover:text-brand-ink group-hover:underline">
+                {a.pinned && <FontAwesomeIcon icon={faThumbtack} className="text-xs text-muted" />}{a.title}
               </span>
-              <span className={cx("mt-2 block text-sm font-medium group-hover:underline", r.outToday ? "text-muted" : "text-ink")}>{r.person.fullName}</span>
-            </Link>
-            <span className="block text-xs text-muted">{r.person.jobTitle ?? ""}</span>
-            {r.notes.slice(0, 2).map((n) => <span key={n} className="mt-1 block text-xs text-muted">{n}</span>)}
-            {r.notes.length > 2 && <span className="mt-0.5 block text-xs text-brand-ink">+{r.notes.length - 2} more</span>}
+              <span className="mt-0.5 block text-xs text-muted">
+                {a.authorName} · {a.publishedAt > now ? `Scheduled for ${formatDate(a.publishedAt.slice(0, 10))}` : ago(a.publishedAt)}
+              </span>
+              <span className="mt-1 line-clamp-2 block text-sm text-muted">{a.body}</span>
+            </button>
           </li>
         ))}
       </ul>
-    </Widget>
+    </Dialog>
   );
 }
 
-/* ------------------------------------------------------------------- Insights */
+/* ----------------------------------------- People: headcount, direct reports, turnover */
 
-export function InsightsWidget({ insights }: { insights: Insights }) {
-  const [view, setView] = useState<"headcount" | "turnover" | "location">("headcount");
-  const tabs = [
-    { key: "headcount", label: "Headcount", icon: faChartLine },
-    { key: "turnover", label: "Turnover", icon: faArrowTrendUp },
-    { key: "location", label: "By location", icon: faChartColumn },
-  ] as const;
-  const latest = Number(insights.headcount[insights.headcount.length - 1]?.value ?? 0);
-  const leavers = insights.leavers.reduce((sum, l) => sum + Number(l.value), 0);
+function noteIcon(note: string): IconDefinition {
+  if (note.startsWith("Out")) return faUmbrellaBeach;
+  if (note.startsWith("Birthday")) return faCakeCandles;
+  if (note.includes("anniversary")) return faAward;
+  if (note.startsWith("Onboarding")) return faListCheck;
+  return faCalendarDay;
+}
+
+function ReportTile({ report }: { report: HomeData["home"]["directReports"][number] }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
+    const escape = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", escape); };
+  }, [open]);
+  const [first, ...more] = report.notes;
   return (
-    <Widget title="People" icon={faChartLine} className="lg:col-span-3">
-      <div className="grid gap-6 lg:grid-cols-[1fr_200px]">
-        <div className="min-w-0">
-          {view === "headcount" && (
-            <>
-              <p className="mb-3 text-sm text-muted"><span className="text-2xl font-semibold text-ink">{latest}</span> people employed now</p>
-              <LineChart points={toPoints(insights.headcount)} unit="people" caption="Headcount at each month end, last 12 months" />
-            </>
-          )}
-          {view === "turnover" && (
-            <>
-              <p className="mb-3 text-sm text-muted">
-                <span className="text-2xl font-semibold text-ink">{Number(insights.turnoverRate)}%</span> turnover · {leavers} {leavers === 1 ? "leaver" : "leavers"} in 12 months
-              </p>
-              <ColumnChart points={toPoints(insights.leavers)} unit="leavers" caption="Leavers per month, last 12 months" />
-            </>
-          )}
-          {view === "location" && (insights.byLocation.length ? <BarList items={insights.byLocation} unit="people" /> : <Empty>No one placed at a location yet.</Empty>)}
+    <li ref={box} className="relative flex flex-col items-center text-center">
+      <Link href={`/employees/${report.person.id}`} className="group flex flex-col items-center">
+        <Photo name={report.person.fullName} src={report.person.photoUrl} size={96} faded={report.outToday} />
+        <span className={cx("mt-2.5 text-[15px] font-medium group-hover:underline", report.outToday ? "text-muted" : "text-ink")}>{report.person.fullName}</span>
+      </Link>
+      {first && <span className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted"><FontAwesomeIcon icon={noteIcon(first)} className="text-[11px]" />{first}</span>}
+      {more.length > 0 && (
+        <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
+          className="mt-0.5 flex items-center gap-1.5 text-[13px] text-muted hover:text-ink">
+          <span className="h-2 w-2 rounded-full bg-brand" aria-hidden />+{more.length} more
+        </button>
+      )}
+      {open && (
+        <div role="dialog" aria-label={report.person.fullName} className="absolute left-1/2 top-full z-30 mt-1 w-64 -translate-x-1/2 rounded-xl border border-line bg-surface p-4 text-left shadow-lg">
+          <p className="font-semibold text-ink">{report.person.fullName}</p>
+          {report.person.jobTitle && <p className="text-sm text-muted">{report.person.jobTitle}</p>}
+          <ul className="mt-3 space-y-2">
+            {report.notes.map((n) => <li key={n} className="flex items-center gap-2.5 text-sm text-ink"><FontAwesomeIcon icon={noteIcon(n)} fixedWidth className="text-muted" />{n}</li>)}
+          </ul>
         </div>
-        <div role="tablist" className="flex gap-1 lg:flex-col">
-          {tabs.map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={view === t.key} onClick={() => setView(t.key)}
-              className={cx("flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-medium transition",
-                view === t.key ? "bg-brand text-white" : "text-ink hover:bg-subtle")}>
-              <FontAwesomeIcon icon={t.icon} fixedWidth className="text-[13px]" />{t.label}
-            </button>
-          ))}
+      )}
+    </li>
+  );
+}
+
+const toColumns = (insights: Insights, pick: (m: Insights["months"][number]) => Record<string, number>): Column[] =>
+  insights.months.map((m) => ({ month: m.month, label: monthName(m.month), year: Number(m.month.slice(0, 4)), values: pick(m) }));
+
+function Delta({ value, percent }: { value: number; percent: string | null | undefined }) {
+  const tone = value > 0 ? "text-[#006300] dark:text-[#0ca30c]" : value < 0 ? "text-red-700 dark:text-red-400" : "text-muted";
+  return (
+    <span className="block text-sm">
+      <span className={cx("font-semibold", tone)}>{value > 0 ? "+" : ""}{value}</span>
+      {percent !== null && percent !== undefined && <span className="text-muted"> ({Number(percent) > 0 ? "+" : ""}{Number(percent)}%)</span>}
+    </span>
+  );
+}
+
+function HeadcountView({ insights }: { insights: Insights }) {
+  const [table, setTable] = useState(false);
+  const head: Series = { key: "headcount", label: "Headcount", color: SERIES[0] };
+  const adds: Series = { key: "additions", label: "Additions", color: SERIES[0] };
+  const terms: Series = { key: "terminations", label: "Terminations", color: SERIES[1] };
+  const columns = toColumns(insights, (m) => ({ headcount: m.headcount, additions: m.additions, terminations: m.terminations }));
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_190px]">
+      <div className="min-w-0">
+        {table ? <ChartTable columns={columns} series={[head, adds, terms]} /> : (
+          <>
+            <MonthColumns columns={columns} series={[head]} tip={(c) => {
+              const i = columns.indexOf(c);
+              const before = i > 0 ? columns[i - 1].values.headcount : null;
+              const change = before === null ? null : c.values.headcount - before;
+              return (
+                <>
+                  <TipRow color={head.color} value={c.values.headcount} label="people" />
+                  {change !== null && <span className="block text-muted">{change >= 0 ? "+" : ""}{change}{before ? ` (${((change / before) * 100).toFixed(1)}%)` : ""} on {columns[i - 1].label}</span>}
+                  <span className="block text-muted">{plural(c.values.additions, "addition")}, {plural(c.values.terminations, "termination")}</span>
+                </>
+              );
+            }} />
+            <div className="mt-3"><DivergingStrip columns={columns} up={adds} down={terms} /></div>
+            <div className="mt-2"><Legend series={[adds, terms]} /></div>
+          </>
+        )}
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+          <Link href="/reports/headcount" className="font-medium text-brand-ink hover:underline">Headcount report »</Link>
+          <Link href="/reports/joiners-leavers" className="font-medium text-brand-ink hover:underline">Additions and terminations report »</Link>
+          <button type="button" onClick={() => setTable(!table)} className="text-muted hover:text-ink">{table ? "Show chart" : "Show table"}</button>
         </div>
+      </div>
+      <dl className="space-y-4 lg:border-l lg:border-line lg:pl-5">
+        <div>
+          <dt className="text-sm font-semibold text-ink">Total employees</dt>
+          <dd className="mt-1 flex items-center gap-2.5 text-muted"><FontAwesomeIcon icon={faUsers} className="text-xl" /><span className="font-display text-[34px] leading-none text-ink">{insights.headcount}</span></dd>
+          <dd className="mt-1"><Delta value={insights.change} percent={insights.changePercent} /><span className="text-sm text-muted">Last 12 months</span></dd>
+        </div>
+        <div className="border-t border-line pt-4">
+          <dt className="text-sm font-semibold text-ink">Additions</dt>
+          <dd className="mt-1 flex items-center gap-2.5"><FontAwesomeIcon icon={faUserPlus} className="text-muted" /><span className="font-display text-2xl text-ink">{insights.additions}</span></dd>
+          <dt className="mt-3 text-sm font-semibold text-ink">Terminations</dt>
+          <dd className="mt-1 flex items-center gap-2.5"><FontAwesomeIcon icon={faUserMinus} className="text-muted" /><span className="font-display text-2xl text-ink">{insights.terminations}</span></dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
+function TurnoverView({ insights }: { insights: Insights }) {
+  const [table, setTable] = useState(false);
+  const series: Series[] = [
+    { key: "voluntary", label: "Voluntary", color: SERIES[0] },
+    { key: "involuntary", label: "Involuntary", color: SERIES[1] },
+    { key: "other", label: "Other", color: SERIES[2] },
+  ];
+  // Each column is the month's turnover rate, split by the share of leavers of each kind.
+  const columns = toColumns(insights, (m) => {
+    const rate = Number(m.turnoverRate);
+    const share = (n: number) => (m.terminations ? (rate * n) / m.terminations : 0);
+    return { voluntary: share(m.voluntary), involuntary: share(m.involuntary), other: share(m.other), rate, leavers: m.terminations,
+      voluntaryCount: m.voluntary, involuntaryCount: m.involuntary, otherCount: m.other };
+  });
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_190px]">
+      <div className="min-w-0">
+        {table ? (
+          <ChartTable columns={columns} format={(n) => (Number.isInteger(n) ? String(n) : `${n.toFixed(1)}%`)}
+            series={[{ key: "rate", label: "Turnover", color: "" }, { key: "voluntaryCount", label: "Voluntary", color: "" },
+              { key: "involuntaryCount", label: "Involuntary", color: "" }, { key: "otherCount", label: "Other", color: "" }]} />
+        ) : (
+          <MonthColumns columns={columns} series={series} stacked labelOf={(c) => `${c.values.rate.toFixed(1)}%`} tip={(c) => (
+            <>
+              <span className="block font-semibold text-ink">{c.values.rate.toFixed(1)}% turnover</span>
+              {series.map((s) => <TipRow key={s.key} color={s.color} value={c.values[`${s.key}Count`]} label={s.label.toLowerCase()} />)}
+            </>
+          )} />
+        )}
+        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+          <Link href="/reports/attrition" className="font-medium text-brand-ink hover:underline">Turnover report »</Link>
+          <button type="button" onClick={() => setTable(!table)} className="text-muted hover:text-ink">{table ? "Show chart" : "Show table"}</button>
+        </div>
+      </div>
+      <div className="space-y-4 lg:border-l lg:border-line lg:pl-5">
+        <div>
+          <p className="text-sm font-semibold text-ink">Last 12 months</p>
+          <p className="mt-1 font-display text-[34px] leading-none text-ink">{Number(insights.turnoverRate)}%</p>
+          <p className="mt-1 text-sm text-muted">{plural(insights.terminations, "leaver")}</p>
+        </div>
+        <div className="border-t border-line pt-4"><Legend series={series} /></div>
+      </div>
+    </div>
+  );
+}
+
+type PeopleTab = "headcount" | "reports" | "turnover";
+
+export function PeopleWidget({ insights, reports }: { insights: Insights | null | undefined; reports: HomeData["home"]["directReports"] }) {
+  const tabs = ([
+    insights && { key: "headcount", label: "Headcount", icon: faChartSimple },
+    reports.length > 0 && { key: "reports", label: "My direct reports", icon: faSitemap },
+    insights && { key: "turnover", label: "Turnover", icon: faArrowsRotate },
+  ].filter(Boolean)) as { key: PeopleTab; label: string; icon: IconDefinition }[];
+  const [tab, setTab] = useState<PeopleTab>(reports.length ? "reports" : "headcount");
+  const current = tabs.find((t) => t.key === tab) ?? tabs[0];
+  if (!current) return null;
+  return (
+    <Widget title={current.label} icon={current.icon}>
+      <div className="flex flex-col-reverse gap-5 lg:flex-row">
+        <div className="min-w-0 flex-1">
+          {current.key === "headcount" && insights && <HeadcountView insights={insights} />}
+          {current.key === "turnover" && insights && <TurnoverView insights={insights} />}
+          {current.key === "reports" && (
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 xl:grid-cols-4">
+              {reports.map((r) => <ReportTile key={r.person.id} report={r} />)}
+            </ul>
+          )}
+        </div>
+        {tabs.length > 1 && (
+          <div role="tablist" className="flex flex-none gap-1 lg:w-[200px] lg:flex-col">
+            {tabs.map((t) => (
+              <button key={t.key} type="button" role="tab" aria-selected={t.key === current.key} onClick={() => setTab(t.key)}
+                className={cx("flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[15px] transition",
+                  t.key === current.key ? "bg-brand font-semibold text-white" : "text-ink hover:bg-subtle")}>
+                <FontAwesomeIcon icon={t.icon} fixedWidth className="text-[13px]" />{t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </Widget>
   );
@@ -440,22 +682,21 @@ export function InsightsWidget({ insights }: { insights: Insights }) {
 /* --------------------------------------------------------------- Celebrations */
 
 export function CelebrationsWidget({ celebrations }: { celebrations: HomeData["home"]["celebrations"] }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const now = today();
   return (
     <Widget title="Celebrations" icon={faCakeCandles}>
       {celebrations.length ? (
-        <ul className="space-y-3">
-          {celebrations.slice(0, 6).map((c) => (
-            <li key={c.kind + c.person.id} className="flex items-center gap-3">
-              <Avatar name={c.person.fullName} src={c.person.photoUrl} />
+        <ul className="-my-1 space-y-1">
+          {celebrations.slice(0, 7).map((c) => (
+            <li key={c.kind + c.person.id} className={cx("flex items-center gap-3 rounded-lg px-1 py-1.5", c.date === now && "bg-subtle")}>
+              <Link href={`/employees/${c.person.id}`}><Photo name={c.person.fullName} src={c.person.photoUrl} size={40} /></Link>
               <div className="min-w-0 flex-1">
-                <Link href={`/employees/${c.person.id}`} className="block truncate text-sm font-medium text-ink hover:underline">{c.person.fullName}</Link>
-                <p className="text-xs text-muted">
-                  {new Date(`${c.date}T00:00:00`).toLocaleDateString(undefined, { month: "long", day: "numeric" })} –{" "}
-                  {c.kind === "birthday" ? "Happy birthday!" : `${c.years} ${c.years === 1 ? "year" : "years"} at the company`}
+                <Link href={`/employees/${c.person.id}`} className="block truncate text-[15px] font-semibold text-ink hover:underline">{c.person.fullName}</Link>
+                <p className="text-[13px] text-muted">
+                  {longDate(c.date)} – {c.kind === "birthday" ? "Happy birthday!" : plural(c.years ?? 0, "year")}
                 </p>
               </div>
-              <FontAwesomeIcon icon={c.kind === "birthday" ? faCakeCandles : faAward} className={cx("text-sm", c.date === today ? "text-brand-ink" : "text-muted")} />
+              <FontAwesomeIcon icon={c.kind === "birthday" ? faCakeCandles : faAward} className={cx("text-lg", c.date === now ? "text-brand-ink" : "text-muted/70")} />
             </li>
           ))}
         </ul>
@@ -468,30 +709,29 @@ export function CelebrationsWidget({ celebrations }: { celebrations: HomeData["h
 
 const WhosOutDocument = graphql(`
   query HomeWhosOut($day: Date!) {
-    leaveCalendar(start: $day, end: $day) { absences { requestId status employee { id fullName } leaveType { name } } }
+    leaveCalendar(start: $day, end: $day) { absences { requestId status employee { id fullName photoUrl } leaveType { name } } }
   }
 `);
 
-export function WhosOutWidget({ today }: { today: string }) {
-  const [{ data }] = useQuery({ query: WhosOutDocument, variables: { day: today } });
+export function WhosOutWidget() {
+  const [{ data }] = useQuery({ query: WhosOutDocument, variables: { day: today() } });
   const out = (data?.leaveCalendar.absences ?? []).filter((a) => a.status === "APPROVED");
   return (
-    <Widget title="Who's out" icon={faPlaneDeparture}
-      actions={<Link href="/leave/calendar" className="text-sm font-medium text-brand-ink hover:underline">Full calendar</Link>}>
-      <p className="font-semibold text-brand-ink">{out.length ? `${out.length} ${out.length === 1 ? "person is" : "people are"} out today` : "Everyone is in today"}</p>
+    <Widget title="Who's out" icon={faPlaneDeparture}>
+      <p className="text-[16px] font-semibold text-brand-ink">{out.length ? `${plural(out.length, "person is", "people are")} out today` : "Everyone is in today"}</p>
+      <p className="text-sm text-muted">{out.length ? "On approved leave" : "No approved leave for today"}</p>
       {out.length > 0 && (
-        <ul className="mt-3 space-y-2.5">
-          {out.slice(0, 6).map((a) => (
-            <li key={a.requestId} className="flex items-center gap-3 text-sm">
-              <Avatar name={a.employee.fullName} />
-              <span className="min-w-0">
-                <Link href={`/employees/${a.employee.id}`} className="block truncate font-medium text-ink hover:underline">{a.employee.fullName}</Link>
-                <span className="block text-xs text-muted">{a.leaveType?.name ?? "Away"}</span>
-              </span>
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {out.map((a) => (
+            <li key={a.requestId}>
+              <Link href={`/employees/${a.employee.id}`} title={`${a.employee.fullName}${a.leaveType ? ` · ${a.leaveType.name}` : ""}`}>
+                <Photo name={a.employee.fullName} src={a.employee.photoUrl} size={56} />
+              </Link>
             </li>
           ))}
         </ul>
       )}
+      <Link href="/leave/calendar" className="mt-auto pt-4 text-sm font-medium text-brand-ink hover:underline">Full calendar</Link>
     </Widget>
   );
 }
@@ -506,25 +746,29 @@ const SaveLinksDocument = graphql(`
 
 export function CompanyLinksWidget({ links, canEdit, onSaved }: { links: CompanyLink[]; canEdit: boolean; onSaved: (m: string) => void }) {
   const [editing, setEditing] = useState(false);
+  const [all, setAll] = useState(false);
+  const limit = 8;
+  const shown = all ? links : links.slice(0, limit);
   const groups = new Map<string, CompanyLink[]>();
-  for (const l of links) groups.set(l.group || "Links", [...(groups.get(l.group || "Links") ?? []), l]);
+  for (const l of shown) groups.set(l.group || "Links", [...(groups.get(l.group || "Links") ?? []), l]);
   return (
     <Widget title="Company links" icon={faLink}
-      actions={canEdit ? <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>Edit</Button> : undefined}>
+      actions={canEdit ? <button type="button" onClick={() => setEditing(true)} className="font-medium text-brand-ink hover:underline">Edit</button> : undefined}>
       {links.length ? (
         <div className="space-y-4">
           {[...groups].map(([group, items]) => (
             <div key={group}>
               <h3 className="text-sm font-semibold text-brand-ink">{group}</h3>
-              <ul className="mt-1 space-y-1">
-                {items.map((l) => (
-                  <li key={l.id}><a href={l.url} target="_blank" rel="noopener noreferrer" className="text-sm text-ink hover:underline">{l.label}</a></li>
-                ))}
+              <ul className="mt-1.5 space-y-1">
+                {items.map((l) => <li key={l.id}><a href={l.url} target="_blank" rel="noopener noreferrer" className="text-sm text-muted hover:text-ink hover:underline">{l.label}</a></li>)}
               </ul>
             </div>
           ))}
+          {links.length > limit && (
+            <button type="button" onClick={() => setAll(!all)} className="text-sm text-muted hover:text-ink">{all ? "Fewer links" : `${links.length - limit} more links…`}</button>
+          )}
         </div>
-      ) : <Empty>{canEdit ? "Add links people use often: the company website, HMO portal, PFA, IT help." : "No links yet."}</Empty>}
+      ) : <Empty>{canEdit ? "Add the links people use most: the company website, HMO portal, PFA, IT help." : "No links yet."}</Empty>}
       {editing && <LinksDialog links={links} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onSaved("Links saved."); }} />}
     </Widget>
   );
@@ -548,19 +792,20 @@ function LinksDialog({ links, onClose, onSaved }: { links: CompanyLink[]; onClos
   }
 
   return (
-    <Dialog open wide onClose={onClose} title="Company links" description="Shown on everyone's home page, grouped by heading."
+    <Dialog open wide onClose={onClose} title="Company links" description="Shown on everyone's home page, grouped under their heading."
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
         <Button type="submit" form="links-form" busy={busy}>Save links</Button>
       </>}>
       <form id="links-form" onSubmit={submit} noValidate className="space-y-3">
         {error && <ErrorNote error={error} />}
+        <div className="hidden grid-cols-[1fr_1.3fr_2fr_72px] gap-2 text-[13px] font-medium text-ink sm:grid"><span>Heading</span><span>Name</span><span>Address</span><span /></div>
         {rows.map((r, i) => (
-          <div key={i} className="grid grid-cols-[1fr_1.3fr_2fr_auto] items-end gap-2">
-            <Field label={i === 0 ? "Heading" : ""}><Input aria-label="Heading" value={r.group} placeholder="Benefits" onChange={(e) => set(i, { group: e.target.value })} /></Field>
-            <Field label={i === 0 ? "Name" : ""}><Input aria-label="Name" value={r.label} placeholder="HMO portal" onChange={(e) => set(i, { label: e.target.value })} /></Field>
-            <Field label={i === 0 ? "Address" : ""}><Input aria-label="Address" type="url" value={r.url} onChange={(e) => set(i, { url: e.target.value })} /></Field>
-            <Button variant="ghost" size="sm" className="mb-1" onClick={() => setRows(rows.filter((_, j) => j !== i))}>Remove</Button>
+          <div key={i} className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.3fr_2fr_72px]">
+            <Input aria-label="Heading" value={r.group} placeholder="Benefits" onChange={(e) => set(i, { group: e.target.value })} />
+            <Input aria-label="Name" value={r.label} placeholder="HMO portal" onChange={(e) => set(i, { label: e.target.value })} />
+            <Input aria-label="Address" type="url" value={r.url} onChange={(e) => set(i, { url: e.target.value })} />
+            <Button variant="ghost" size="sm" onClick={() => setRows(rows.filter((_, j) => j !== i))}>Remove</Button>
           </div>
         ))}
         <Button variant="secondary" size="sm" onClick={() => setRows([...rows, { group: rows[rows.length - 1]?.group ?? "", label: "", url: "https://" }])}>Add link</Button>
@@ -572,27 +817,32 @@ function LinksDialog({ links, onClose, onSaved }: { links: CompanyLink[]; onClos
 /* --------------------------------------------------------------------- Welcome */
 
 export function WelcomeWidget({ hires, company }: { hires: HomeData["home"]["newHires"]; company: string }) {
-  const now = new Date().toISOString().slice(0, 10);
+  const now = today();
   const started = hires.filter((h) => h.hireDate <= now);
   const coming = hires.filter((h) => h.hireDate > now);
+  const latest = started[0];
   return (
-    <Widget title={`Welcome to ${company}`} icon={faHandsClapping}>
+    <Widget title={`Welcome to ${company}`} icon={faIdCard} bodyClassName="items-center justify-center text-center">
       {hires.length ? (
-        <div className="space-y-4">
-          {started.length > 0 && <p className="text-center font-display text-lg text-ink">Welcome {started.length} new team {started.length === 1 ? "member" : "members"}!</p>}
-          <ul className="space-y-2.5">
-            {hires.slice(0, 5).map((h) => (
-              <li key={h.person.id} className="flex items-center gap-3">
-                <Avatar name={h.person.fullName} src={h.person.photoUrl} />
-                <span className="min-w-0">
-                  <Link href={`/employees/${h.person.id}`} className="block truncate text-sm font-medium text-ink hover:underline">{h.person.fullName}</Link>
-                  <span className="block text-xs text-muted">{h.hireDate > now ? "Starts" : "Started"} {formatDate(h.hireDate)}{h.person.jobTitle ? ` · ${h.person.jobTitle}` : ""}</span>
-                </span>
+        <>
+          <FontAwesomeIcon icon={faHandsClapping} className="text-[34px] text-brand-ink" />
+          <p className="mt-3 font-display text-[21px] text-ink">
+            {started.length ? `Welcome ${plural(started.length, "new team member")}!` : `${plural(coming.length, "person", "people")} starting soon`}
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            {latest ? `Started ${longDate(latest.hireDate, { weekday: "long", month: "short", day: "numeric" })}` : `First day ${longDate(coming[0].hireDate, { weekday: "long", month: "short", day: "numeric" })}`}
+          </p>
+          <ul className="mt-4 flex flex-wrap justify-center gap-2">
+            {(started.length ? started : coming).slice(0, 6).map((h) => (
+              <li key={h.person.id}>
+                <Link href={`/employees/${h.person.id}`} title={`${h.person.fullName}${h.person.jobTitle ? ` · ${h.person.jobTitle}` : ""}`}>
+                  <Photo name={h.person.fullName} src={h.person.photoUrl} size={56} />
+                </Link>
               </li>
             ))}
           </ul>
-          {coming.length > 0 && started.length > 0 && <p className="text-xs text-muted">{coming.length} more starting soon.</p>}
-        </div>
+          {started.length > 0 && coming.length > 0 && <p className="mt-3 text-xs text-muted">{plural(coming.length, "more person", "more people")} starting soon</p>}
+        </>
       ) : <Empty>No one new in the last 30 days.</Empty>}
     </Widget>
   );
@@ -615,31 +865,40 @@ const LeaveTypesDocument = graphql(`
 export function TimeOffUsedWidget() {
   const [{ data: types }] = useQuery({ query: LeaveTypesDocument });
   const [chosen, setChosen] = useState<string>();
+  const [table, setTable] = useState(false);
   const typeId = chosen ?? types?.leaveTypes[0]?.id;
   const [{ data }] = useQuery({ query: TimeOffUsedDocument, variables: { leaveTypeId: typeId ?? "" }, pause: !typeId });
+  const series: Series = { key: "days", label: "Days", color: SERIES[0] };
+  const columns: Column[] = (data?.timeOffUsed ?? []).map((m) => ({ month: m.month, label: monthName(m.month), year: Number(m.month.slice(0, 4)), values: { days: Number(m.value) } }));
   return (
-    <Widget title="Time off used" icon={faChartColumn}>
+    <Widget title="Time off used" icon={faCalendarDays}>
       {types && types.leaveTypes.length > 0 && (
-        <Select aria-label="Leave type" value={typeId} onChange={(e) => setChosen(e.target.value)} className="mb-4">
+        <Select aria-label="Leave type" value={typeId} onChange={(e) => setChosen(e.target.value)}>
           {types.leaveTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
         </Select>
       )}
-      {data ? <ColumnChart points={toPoints(data.timeOffUsed)} unit="days" caption="Approved days by start month" /> : <div className="h-[184px]" />}
+      <div className="mt-4 flex-1">
+        {!data ? <div className="h-[150px]" /> : table ? <ChartTable columns={columns} series={[series]} /> : <MonthLine columns={columns} series={series} unit="days taken" />}
+      </div>
+      <div className="mt-2 flex justify-between text-xs text-muted">
+        <span>Approved days, last 12 months</span>
+        <button type="button" onClick={() => setTable(!table)} className="hover:text-ink">{table ? "Show chart" : "Show table"}</button>
+      </div>
     </Widget>
   );
 }
 
-/* ----------------------------------------------------------- HR summary tiles */
+/* ------------------------------------------------------------- HR summary cards */
 
-function BigNumber({ icon, value, label, hint, href, tone }: { icon: IconDefinition; value: number; label: string; hint?: string; href?: string; tone?: "warn" }) {
+function BigFigure({ icon, value, label, sub, href }: { icon: IconDefinition; value: number; label: string; sub?: string; href?: string }) {
   const body = (
-    <span className="flex items-center justify-center gap-4 py-2">
-      <FontAwesomeIcon icon={icon} className={cx("text-3xl", tone === "warn" && value ? "text-amber-600" : "text-muted")} />
-      <span>
-        <span className="block text-4xl font-semibold text-ink">{value}</span>
-        <span className="block text-sm text-muted">{label}</span>
-        {hint && <span className="block text-xs text-muted">{hint}</span>}
+    <span className="flex flex-col items-center py-3 text-center">
+      <span className="flex items-center gap-3">
+        <FontAwesomeIcon icon={icon} className="text-[34px] text-muted" />
+        <span className="font-display text-[40px] leading-none text-ink">{value}</span>
       </span>
+      <span className="mt-1.5 text-[15px] text-ink">{label}</span>
+      {sub && <span className="text-xs text-muted">{sub}</span>}
     </span>
   );
   return href ? <Link href={href} className="block rounded-xl hover:bg-subtle">{body}</Link> : body;
@@ -647,91 +906,147 @@ function BigNumber({ icon, value, label, hint, href, tone }: { icon: IconDefinit
 
 export function TimeOffRequestsWidget({ insights }: { insights: Insights }) {
   return (
-    <Widget title="Time off requests" icon={faClock}>
+    <Widget title="Time off requests" icon={faCalendarDays} bodyClassName="justify-center">
       <div className="divide-y divide-line">
-        <BigNumber icon={faTriangleExclamation} value={insights.pendingUrgent} label="Urgent requests" hint="Starting within 7 days" href="/leave/approvals" tone="warn" />
-        <BigNumber icon={faClock} value={insights.pendingOther} label="Other requests" href="/leave/approvals" />
+        <BigFigure icon={faStopwatch} value={insights.pendingUrgent} label="Urgent requests" sub="Starting within 7 days" href="/leave/approvals" />
+        <BigFigure icon={faCalendarDays} value={insights.pendingOther} label="Other requests" href="/leave/approvals" />
       </div>
-    </Widget>
-  );
-}
-
-export function OnboardingWidget({ summary, company }: { summary: NonNullable<Insights["onboarding"]>; company: string }) {
-  return (
-    <Widget title={`Onboarding at ${company}`} icon={faClipboardCheck}>
-      <dl className="space-y-3">
-        <div className="rounded-xl bg-subtle px-4 py-3">
-          <dt className="text-xs font-semibold text-brand-ink">Already started</dt>
-          <dd className="mt-1 text-[15px] text-ink">
-            {summary.withOverdue ? <Badge tone="warn">{summary.withOverdue} with overdue tasks</Badge> : "No one has overdue tasks"}
-            <span className="block text-xs text-muted">{summary.inProgress} {summary.inProgress === 1 ? "person" : "people"} onboarding</span>
-          </dd>
-        </div>
-        <div className="rounded-xl bg-subtle px-4 py-3">
-          <dt className="text-xs font-semibold text-brand-ink">Starting in the next 30 days</dt>
-          <dd className="mt-1 text-[15px] text-ink">{summary.startingSoon ? `${summary.startingSoon} ${summary.startingSoon === 1 ? "person" : "people"}` : "No one scheduled"}</dd>
-        </div>
-      </dl>
-      <Link href="/settings/checklists" className="mt-4 inline-block text-sm font-medium text-brand-ink hover:underline">Onboarding tasks</Link>
     </Widget>
   );
 }
 
 export function PayRaiseWidget({ count }: { count: number }) {
   return (
-    <Widget title="People without a pay raise" icon={faArrowTrendUp}>
-      <BigNumber icon={faArrowTrendUp} value={count} label="Without a pay change" hint="for 12+ months" href="/reports" />
+    <Widget title="People without a pay raise" icon={faFaceFrown} bodyClassName="justify-center">
+      <BigFigure icon={faFaceFrown} value={count} label="Without pay raise" sub="for 12+ months" href="/reports/pay" />
     </Widget>
   );
 }
 
-/* --------------------------------------------------------------- Edit widgets */
+function Row({ title, sub }: { title: string; sub?: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-xl bg-subtle px-4 py-3">
+      <FontAwesomeIcon icon={faUserCheck} className="mt-1 text-muted" />
+      <div><p className="text-[16px] font-semibold text-ink">{title}</p>{sub && <p className="text-[13px] text-muted">{sub}</p>}</div>
+    </div>
+  );
+}
 
-export const WIDGET_NAMES: Record<string, string> = {
-  time_off: "Time off", my_stuff: "My stuff", happening: "What's happening", direct_reports: "My direct reports",
-  insights: "People (headcount, turnover, locations)", celebrations: "Celebrations", whos_out: "Who's out",
-  company_links: "Company links", welcome: "Welcome new people", time_off_used: "Time off used",
-  time_off_requests: "Time off requests", onboarding: "Onboarding", pay_raise: "People without a pay raise",
-};
+export function OnboardingWidget({ summary, company }: { summary: NonNullable<Insights["onboarding"]>; company: string }) {
+  const [next, ...later] = summary.starting;
+  return (
+    <Widget title={`Onboarding at ${company}`} icon={faClipboardCheck}>
+      <div className="space-y-4">
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-brand-ink">Already started</h3>
+          {summary.inProgress ? (
+            <Row title={summary.withOverdue ? `${plural(summary.withOverdue, "person has", "people have")} overdue tasks` : "No one has overdue tasks"}
+              sub={summary.inProgress - summary.withOverdue ? `${plural(summary.inProgress - summary.withOverdue, "person", "people")} on track` : undefined} />
+          ) : <Row title="No one is onboarding" />}
+        </div>
+        {next && (
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-brand-ink">Starting {longDate(next.date, { weekday: "long", month: "long", day: "numeric" })}</h3>
+            <Row title={next.people.map((p) => p.fullName).join(", ")} sub={next.people[0]?.jobTitle ?? undefined} />
+          </div>
+        )}
+      </div>
+      <div className="mt-auto pt-4 text-[13px] text-muted">
+        {later.length > 0 ? <span className="flex items-center gap-2"><FontAwesomeIcon icon={faCalendarDay} />{plural(later.reduce((n, g) => n + g.people.length, 0), "more person", "more people")} scheduled to start…</span>
+          : <Link href="/settings/checklists" className="font-medium text-brand-ink hover:underline">Onboarding tasks</Link>}
+      </div>
+    </Widget>
+  );
+}
 
-const SaveLayoutDocument = graphql(`
-  mutation SaveHomeLayout($widgets: JSON!) {
-    saveHomeLayout(widgets: $widgets) { key hidden }
+export function CertificationsWidget({ certifications }: { certifications: Insights["expiringCertifications"] }) {
+  const now = today();
+  return (
+    <Widget title="Expiring certifications" icon={faGraduationCap}>
+      {certifications.length ? (
+        <ul className="space-y-2">
+          {certifications.slice(0, 4).map((c) => (
+            <li key={c.name} className="rounded-xl bg-subtle px-4 py-3">
+              <p className="truncate text-[15px] font-semibold text-ink">{c.name}</p>
+              <p className="mt-0.5 flex items-center gap-2 text-[13px] text-muted">
+                <FontAwesomeIcon icon={faUsers} className="text-[11px]" />{plural(c.people, "employee")} ·
+                <span className={c.soonest < now ? "text-red-600 dark:text-red-400" : undefined}>{c.soonest < now ? "expired" : "expires"} {formatDate(c.soonest)}</span>
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : <Empty>No certifications expire in the next 60 days.</Empty>}
+      {certifications.length > 4 && <p className="mt-auto pt-3 text-[13px] text-muted">{plural(certifications.length - 4, "more certification")}…</p>}
+    </Widget>
+  );
+}
+
+export function BreakdownWidget({ title, icon, items, href, empty }: { title: string; icon: IconDefinition; items: { label: string; value: number }[]; href?: string; empty: string }) {
+  return (
+    <Widget title={title} icon={icon}>
+      {items.length ? <BarList items={items} /> : <Empty>{empty}</Empty>}
+      {href && <Link href={href} className="mt-auto pt-4 text-sm font-medium text-brand-ink hover:underline">Full report »</Link>}
+    </Widget>
+  );
+}
+
+const HolidaysDocument = graphql(`
+  query HomeHolidays($year: Int!, $next: Int!) {
+    thisYear: publicHolidays(year: $year) { id name date location { name } }
+    nextYear: publicHolidays(year: $next) { id name date location { name } }
   }
 `);
 
-export function EditWidgetsDialog({ widgets, available, onClose, onSaved }: {
-  widgets: HomeData["homeLayout"]; available: Set<string>; onClose: () => void; onSaved: () => void;
-}) {
-  const [, save] = useMutation(SaveLayoutDocument);
-  // Only the widgets this person can have are listed; the rest keep their place at the end.
-  const [rows, setRows] = useState(widgets.filter((w) => available.has(w.key)).map((w) => ({ key: w.key, hidden: w.hidden })));
-  const rest = widgets.filter((w) => !available.has(w.key)).map((w) => ({ key: w.key, hidden: w.hidden }));
-  const [busy, setBusy] = useState(false);
-  const move = (i: number, by: number) => {
-    const j = i + by;
-    if (j < 0 || j >= rows.length) return;
-    const next = [...rows];
-    [next[i], next[j]] = [next[j], next[i]];
-    setRows(next);
-  };
+export function HolidaysWidget() {
+  const year = new Date().getFullYear();
+  const [{ data }] = useQuery({ query: HolidaysDocument, variables: { year, next: year + 1 } });
+  const now = today();
+  const upcoming = [...(data?.thisYear ?? []), ...(data?.nextYear ?? [])].filter((h) => h.date >= now).slice(0, 5);
   return (
-    <Dialog open onClose={onClose} title="Edit your home page" description="Choose what you see and in what order. Only you see this layout."
-      footer={<>
-        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-        <Button busy={busy} onClick={async () => { setBusy(true); await save({ widgets: [...rows, ...rest] }); setBusy(false); onSaved(); }}>Save</Button>
-      </>}>
-      <ul className="divide-y divide-line rounded-xl border border-line">
-        {rows.map((r, i) => {
-          return (
-            <li key={r.key} className="flex items-center gap-3 px-3 py-2">
-              <div className="flex-1"><Checkbox label={WIDGET_NAMES[r.key] ?? r.key} checked={!r.hidden} onChange={(c) => setRows(rows.map((x) => (x.key === r.key ? { ...x, hidden: !c } : x)))} /></div>
-              <IconButton label={`Move ${WIDGET_NAMES[r.key]} up`} onClick={() => move(i, -1)}><FontAwesomeIcon icon={faChevronLeft} className="rotate-90 text-xs" /></IconButton>
-              <IconButton label={`Move ${WIDGET_NAMES[r.key]} down`} onClick={() => move(i, 1)}><FontAwesomeIcon icon={faChevronRight} className="rotate-90 text-xs" /></IconButton>
+    <Widget title="Company holidays" icon={faCalendarDay}>
+      {upcoming.length ? (
+        <ul className="space-y-3">
+          {upcoming.map((h) => (
+            <li key={h.id} className="flex items-center gap-3">
+              <span className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-subtle text-center leading-none">
+                <span>
+                  <span className="block text-[10px] font-semibold uppercase text-muted">{longDate(h.date, { month: "short" })}</span>
+                  <span className="block font-display text-[17px] text-ink">{Number(h.date.slice(8))}</span>
+                </span>
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[15px] font-medium text-ink">{h.name}</span>
+                <span className="block text-[13px] text-muted">{longDate(h.date, { weekday: "long" })}{h.location ? ` · ${h.location.name} only` : ""}</span>
+              </span>
             </li>
-          );
-        })}
-      </ul>
-    </Dialog>
+          ))}
+        </ul>
+      ) : <Empty>No public holidays coming up.</Empty>}
+    </Widget>
   );
 }
+
+/* --------------------------------------------------------------- Widget catalogue */
+
+export const WIDGETS: Record<string, { name: string; icon: IconDefinition }> = {
+  time_off: { name: "Time off", icon: faCalendarDays },
+  my_stuff: { name: "My stuff", icon: faBoxOpen },
+  happening: { name: "What's happening", icon: faBullhorn },
+  people: { name: "Headcount, direct reports and turnover", icon: faChartSimple },
+  celebrations: { name: "Celebrations", icon: faCakeCandles },
+  whos_out: { name: "Who's out", icon: faPlaneDeparture },
+  company_links: { name: "Company links", icon: faLink },
+  welcome: { name: "Welcome", icon: faIdCard },
+  time_off_used: { name: "Time off used", icon: faCalendarDays },
+  pay_raise: { name: "People without a pay raise", icon: faFaceFrown },
+  certifications: { name: "Expiring certifications", icon: faGraduationCap },
+  location: { name: "Location", icon: faLocationDot },
+  onboarding: { name: "Onboarding", icon: faClipboardCheck },
+  time_off_requests: { name: "Time off requests", icon: faCalendarDays },
+  department: { name: "Department", icon: faBuilding },
+  employment_type: { name: "Employment type", icon: faBriefcase },
+  gender: { name: "Gender", icon: faVenusMars },
+  age: { name: "Age", icon: faPeopleGroup },
+  benefit_enrollments: { name: "Benefit enrollments", icon: faHeartPulse },
+  holidays: { name: "Company holidays", icon: faCalendarDay },
+};

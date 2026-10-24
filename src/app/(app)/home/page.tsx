@@ -1,21 +1,23 @@
 "use client";
 
-import { faBullhorn, faCaretDown, faTableCellsLarge, faUmbrellaBeach, faUserPlus } from "@fortawesome/free-solid-svg-icons";
+import {
+  faBriefcase, faBuilding, faCaretDown, faCirclePlus, faHeartPulse, faLocationDot, faPeopleGroup, faPlus, faTableCellsLarge,
+  faVenusMars, faXmark,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
-import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
-import { useQuery } from "urql";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useMutation, useQuery } from "urql";
 
 import {
-  AnnouncementDialog, CelebrationsWidget, CompanyLinksWidget, DirectReportsWidget, EditWidgetsDialog, HappeningWidget, HomeDataDocument,
-  InsightsWidget, MyStuffWidget, OnboardingWidget, PayRaiseWidget, ReadAnnouncementDialog, TimeOffRequestsWidget, TimeOffUsedWidget,
-  TimeOffWidget, WelcomeWidget, WhosOutWidget, type HomeData,
+  AllAnnouncementsDialog, AnnouncementDialog, BreakdownWidget, CelebrationsWidget, CertificationsWidget, CompanyLinksWidget, HappeningWidget,
+  HolidaysWidget, HomeDataDocument, MyStuffWidget, OnboardingWidget, PayRaiseWidget, PeopleWidget, Photo, ReadAnnouncementDialog,
+  TimeOffRequestsWidget, TimeOffUsedWidget, TimeOffWidget, WelcomeWidget, WhosOutWidget, WIDGETS, type HomeData,
 } from "@/components/home/Widgets";
 import { EmployeeLeaveDocument, RequestLeaveDialog } from "@/components/leave/Leave";
-import { Avatar, Button, ErrorNote, Loading, Notice } from "@/components/ui";
+import { Button, ErrorNote, Loading, Notice, cx } from "@/components/ui";
 import { graphql } from "@/gql";
 import { errorMessage } from "@/lib/api";
-import { today } from "@/lib/forms";
 import { PERMS } from "@/lib/permissions";
 import { useSession } from "@/lib/session";
 
@@ -31,7 +33,17 @@ const MyPhotoDocument = graphql(`
   }
 `);
 
+const SaveLayoutDocument = graphql(`
+  mutation SaveHomeLayout($widgets: JSON!) {
+    saveHomeLayout(widgets: $widgets) { key hidden }
+  }
+`);
+
 type Announcement = HomeData["announcements"][number];
+type Slot = { key: string; hidden: boolean };
+
+// Where each widget sits on the three-column grid; the feed beside the two personal cards, as on BambooHR.
+const SPAN: Record<string, string> = { happening: "lg:col-span-2 lg:row-span-2", people: "lg:col-span-3" };
 
 /** The "New…" dropdown beside the greeting. */
 function NewMenu({ children }: { children: (close: () => void) => ReactNode }) {
@@ -47,11 +59,13 @@ function NewMenu({ children }: { children: (close: () => void) => ReactNode }) {
   }, [open]);
   return (
     <div ref={box} className="relative">
-      <Button variant="secondary" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu">
-        New… <FontAwesomeIcon icon={faCaretDown} className="text-xs" />
-      </Button>
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu"
+        className={cx("inline-flex h-10 items-center gap-2 rounded-full border bg-surface px-4 text-[15px] font-medium text-ink transition",
+          open ? "border-brand-ink ring-2 ring-brand/20" : "border-line-strong hover:bg-subtle")}>
+        <FontAwesomeIcon icon={faCirclePlus} className="text-muted" /> New… <FontAwesomeIcon icon={faCaretDown} className="text-xs" />
+      </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-full z-40 mt-2 w-60 overflow-hidden rounded-xl border border-line bg-surface py-1.5 shadow-lg">
+        <div role="menu" className="absolute right-0 top-full z-40 mt-2 w-56 overflow-hidden rounded-xl border border-line bg-surface py-1.5 shadow-lg">
           {children(() => setOpen(false))}
         </div>
       )}
@@ -59,16 +73,14 @@ function NewMenu({ children }: { children: (close: () => void) => ReactNode }) {
   );
 }
 
-function NewItem({ icon, onClick, href, children }: { icon: typeof faBullhorn; onClick?: () => void; href?: string; children: ReactNode }) {
-  const className = "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-ink hover:bg-subtle";
-  const body = <><FontAwesomeIcon icon={icon} fixedWidth className="text-muted" />{children}</>;
-  return href ? <Link role="menuitem" href={href} className={className}>{body}</Link>
-    : <button role="menuitem" type="button" onClick={onClick} className={className}>{body}</button>;
+function NewItem({ onClick, href, children }: { onClick?: () => void; href?: string; children: ReactNode }) {
+  const className = "block w-full px-4 py-2.5 text-left text-[15px] text-brand-ink hover:bg-subtle hover:underline";
+  return href ? <Link role="menuitem" href={href} className={className}>{children}</Link>
+    : <button role="menuitem" type="button" onClick={onClick} className={className}>{children}</button>;
 }
 
 export default function HomePage() {
   const { me, can, tenant } = useSession();
-  const now = today();
   const employeeId = me?.employee?.id;
   const manage = can(PERMS.employeesManage);
 
@@ -76,14 +88,19 @@ export default function HomePage() {
   const [{ data: leaveData }, reloadLeave] = useQuery({ query: EmployeeLeaveDocument, variables: {}, pause: !employeeId });
   const [{ data: expiring }] = useQuery({ query: ExpiringDocument, pause: !can(PERMS.documentsManage) });
   const [{ data: photo }] = useQuery({ query: MyPhotoDocument, variables: { id: employeeId ?? "" }, pause: !employeeId });
-  const [dialog, setDialog] = useState<"request" | "post" | "edit" | null>(null);
+  const [, saveLayout] = useMutation(SaveLayoutDocument);
+  const [dialog, setDialog] = useState<"request" | "post" | "all" | null>(null);
   const [reading, setReading] = useState<Announcement | null>(null);
   const [editingPost, setEditingPost] = useState<Announcement | null>(null);
   const [notice, setNotice] = useState<string>();
+  const [draft, setDraft] = useState<Slot[] | null>(null);
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   if (error) return <ErrorNote error={errorMessage(error)} />;
   if (!me || !data) return <Loading />;
   const home = data.home;
+  const insights = home.insights;
   const balances = leaveData?.employeeLeave.balances ?? [];
   const company = tenant?.name ?? "the company";
   const firstName = me.user.fullName.split(" ")[0];
@@ -93,71 +110,144 @@ export default function HomePage() {
     reload({ requestPolicy: "network-only" });
   };
 
-  // Each widget, if this person can have it. Order and hiding come from their saved layout.
+  // Each widget this person can have. Order and hiding come from their saved layout.
   const widgets: Record<string, ReactNode | null> = {
-    time_off: employeeId && balances.length ? <TimeOffWidget balances={balances} onRequest={() => setDialog("request")} /> : null,
+    time_off: employeeId && balances.length ? <TimeOffWidget balances={balances} employeeId={employeeId} onRequest={() => setDialog("request")} /> : null,
     my_stuff: employeeId && home.myStuff ? <MyStuffWidget stuff={home.myStuff} employeeId={employeeId} /> : null,
     happening: (
-      <HappeningWidget announcements={data.announcements} newHires={home.newHires} canPost={manage} canSeeChanges={manage}
-        onChanged={done} onOpen={setReading} onPost={() => { setEditingPost(null); setDialog("post"); }} />
+      <HappeningWidget company={company} announcements={data.announcements} newHires={home.newHires} dismissed={data.dismissedFeed}
+        canPost={manage} canSeeChanges={manage} onChanged={done} onOpen={setReading} onAll={() => setDialog("all")}
+        onPost={() => { setEditingPost(null); setDialog("post"); }} />
     ),
-    direct_reports: home.directReports.length ? <DirectReportsWidget reports={home.directReports} /> : null,
-    insights: home.insights ? <InsightsWidget insights={home.insights} /> : null,
+    people: insights || home.directReports.length ? <PeopleWidget insights={insights} reports={home.directReports} /> : null,
     celebrations: <CelebrationsWidget celebrations={home.celebrations} />,
-    whos_out: <WhosOutWidget today={now} />,
+    whos_out: <WhosOutWidget />,
     company_links: data.companyLinks.length || manage ? <CompanyLinksWidget links={data.companyLinks} canEdit={manage} onSaved={done} /> : null,
     welcome: <WelcomeWidget hires={home.newHires} company={company} />,
-    time_off_used: home.insights ? <TimeOffUsedWidget /> : null,
-    time_off_requests: home.insights ? <TimeOffRequestsWidget insights={home.insights} /> : null,
-    onboarding: home.insights?.onboarding ? <OnboardingWidget summary={home.insights.onboarding} company={company} /> : null,
-    pay_raise: home.insights && home.insights.withoutPayRaise !== null && home.insights.withoutPayRaise !== undefined
-      ? <PayRaiseWidget count={home.insights.withoutPayRaise} /> : null,
+    time_off_used: insights ? <TimeOffUsedWidget /> : null,
+    pay_raise: insights && insights.withoutPayRaise !== null && insights.withoutPayRaise !== undefined ? <PayRaiseWidget count={insights.withoutPayRaise} /> : null,
+    certifications: insights ? <CertificationsWidget certifications={insights.expiringCertifications} /> : null,
+    location: insights ? <BreakdownWidget title="Location" icon={faLocationDot} items={insights.byLocation} href="/reports/headcount" empty="No one placed at a location yet." /> : null,
+    onboarding: insights?.onboarding ? <OnboardingWidget summary={insights.onboarding} company={company} /> : null,
+    time_off_requests: insights ? <TimeOffRequestsWidget insights={insights} /> : null,
+    department: insights ? <BreakdownWidget title="Department" icon={faBuilding} items={insights.byDepartment} href="/reports/headcount" empty="No departments yet." /> : null,
+    employment_type: insights ? <BreakdownWidget title="Employment type" icon={faBriefcase} items={insights.byEmploymentType} href="/reports/demographics" empty="No one yet." /> : null,
+    gender: insights ? <BreakdownWidget title="Gender" icon={faVenusMars} items={insights.byGender} href="/reports/demographics" empty="No one yet." /> : null,
+    age: insights ? <BreakdownWidget title="Age" icon={faPeopleGroup} items={insights.byAge} href="/reports/demographics" empty="No one yet." /> : null,
+    benefit_enrollments: insights ? <BreakdownWidget title="Benefit enrollments" icon={faHeartPulse} items={insights.benefitEnrollments} href="/settings/benefits" empty="No one enrolled yet." /> : null,
+    holidays: <HolidaysWidget />,
   };
-  const available = new Set(Object.keys(widgets).filter((k) => widgets[k] !== null));
-  const shown = data.homeLayout.filter((w) => !w.hidden && available.has(w.key));
+  const available = (key: string) => widgets[key] !== null && widgets[key] !== undefined;
+  const slots = (draft ?? data.homeLayout).filter((w) => available(w.key));
+  const shown = slots.filter((w) => !w.hidden);
+  const addable = slots.filter((w) => w.hidden);
+  const editing = draft !== null;
+
+  function move(key: string, before: string) {
+    if (!draft || key === before) return;
+    const next = draft.filter((w) => w.key !== key);
+    const at = next.findIndex((w) => w.key === before);
+    next.splice(at, 0, draft.find((w) => w.key === key)!);
+    setDraft(next);
+  }
+  const setHidden = (key: string, hidden: boolean) => {
+    if (!draft) return;
+    const rest = draft.filter((w) => w.key !== key);
+    // A widget brought back goes to the end, where the person can drag it into place.
+    setDraft(hidden ? draft.map((w) => (w.key === key ? { ...w, hidden } : w)) : [...rest, { key, hidden: false }]);
+  };
+  async function save() {
+    if (!draft) return;
+    setSaving(true);
+    await saveLayout({ widgets: draft });
+    setSaving(false);
+    setDraft(null);
+    done("Home page saved.");
+  }
 
   return (
-    <>
+    <div className={editing ? "pb-56" : undefined}>
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          {photo?.employee?.photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo.employee.photoUrl} alt="" className="h-16 w-16 rounded-2xl object-cover ring-1 ring-line" />
-          ) : <span className="hidden sm:block"><Avatar name={me.user.fullName} size="lg" /></span>}
-          <div>
-            <p className="text-sm text-muted">{new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" })}</p>
-            <h1 className="font-display text-[34px] font-medium leading-tight text-brand-ink">Hi, {firstName}</h1>
-          </div>
+        <div className="flex items-center gap-6">
+          <Photo name={me.user.fullName} src={photo?.employee?.photoUrl} size={96} className="hidden sm:block" />
+          <h1 className="font-display text-[40px] font-medium leading-tight text-brand-ink sm:text-[46px]">Hi, {firstName}</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <NewMenu>
-            {(close) => (
-              <>
-                {balances.length > 0 && <NewItem icon={faUmbrellaBeach} onClick={() => { close(); setDialog("request"); }}>Time off request</NewItem>}
-                {manage && <NewItem icon={faBullhorn} onClick={() => { close(); setEditingPost(null); setDialog("post"); }}>Announcement</NewItem>}
-                {manage && <NewItem icon={faUserPlus} href="/employees/new">Employee</NewItem>}
-              </>
+        {!editing && (
+          <div className="flex items-center gap-2">
+            {manage && (
+              <NewMenu>
+                {(close) => (
+                  <>
+                    <NewItem href="/employees/new">New employee</NewItem>
+                    <NewItem href="/reports">New report</NewItem>
+                    <NewItem onClick={() => { close(); setEditingPost(null); setDialog("post"); }}>New announcement</NewItem>
+                  </>
+                )}
+              </NewMenu>
             )}
-          </NewMenu>
-          <Button variant="secondary" icon={<FontAwesomeIcon icon={faTableCellsLarge} className="text-[13px]" />} onClick={() => setDialog("edit")}>Edit</Button>
-        </div>
+            <button type="button" onClick={() => { setNotice(undefined); setDraft(data.homeLayout.map((w) => ({ key: w.key, hidden: w.hidden }))); }}
+              className="inline-flex h-10 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 text-[15px] font-medium text-ink hover:bg-subtle">
+              <FontAwesomeIcon icon={faTableCellsLarge} className="text-[14px]" /> Edit
+            </button>
+          </div>
+        )}
       </div>
 
-      {notice && <Notice tone="success">{notice}</Notice>}
-      {expiring && expiring.expiringDocuments.length > 0 && (
-        <Notice tone="warning" title={`${expiring.expiringDocuments.length} ${expiring.expiringDocuments.length === 1 ? "document has" : "documents have"} expired or expire within 30 days`}>
-          <Link href="/documents" className="font-semibold underline-offset-2 hover:underline">See which ones</Link>
-        </Notice>
-      )}
-      {!employeeId && <Notice tone="info">Your account is not linked to an employee record, so there is no leave or team to show.</Notice>}
+      <div className="mt-6 space-y-4">
+        {notice && <Notice tone="success">{notice}</Notice>}
+        {expiring && expiring.expiringDocuments.length > 0 && !editing && (
+          <Notice tone="warning" title={`${expiring.expiringDocuments.length} ${expiring.expiringDocuments.length === 1 ? "document has" : "documents have"} expired or expire within 30 days`}>
+            <Link href="/documents" className="font-semibold underline-offset-2 hover:underline">See which ones</Link>
+          </Notice>
+        )}
+        {!employeeId && <Notice tone="info">Your account is not linked to an employee record, so there is no time off or team to show.</Notice>}
+      </div>
 
-      <div className="grid grid-flow-row-dense gap-5 lg:grid-cols-3">
-        {/* Wide widgets span the grid; the feed takes two columns and two rows beside the personal cards, as on BambooHR. */}
-        {shown.map((w) => <Fragment key={w.key}>{widgets[w.key]}</Fragment>)}
+      <div className={cx("mt-5 grid grid-flow-row-dense gap-5 lg:grid-cols-3", editing && "rounded-3xl bg-line/40 p-4 sm:p-6")}>
+        {shown.map((w) => (
+          <div key={w.key} className={cx("relative min-w-0 [&>section]:h-full", SPAN[w.key], editing && "cursor-grab", dragging === w.key && "opacity-40")}
+            draggable={editing}
+            onDragStart={(e: DragEvent) => { setDragging(w.key); e.dataTransfer.effectAllowed = "move"; }}
+            onDragEnd={() => setDragging(null)}
+            onDragOver={(e: DragEvent) => { if (editing) e.preventDefault(); }}
+            onDrop={(e: DragEvent) => { e.preventDefault(); if (dragging) move(dragging, w.key); setDragging(null); }}>
+            {editing ? <div className="pointer-events-none h-full select-none [&>section]:h-full [&_header>div:last-child]:invisible">{widgets[w.key]}</div> : widgets[w.key]}
+            {editing && (
+              <button type="button" onClick={() => setHidden(w.key, true)} aria-label={`Remove ${WIDGETS[w.key]?.name ?? w.key}`}
+                className="absolute right-3 top-2.5 z-10 grid h-9 w-9 place-items-center rounded-full border border-line-strong bg-surface text-ink shadow-sm hover:bg-subtle">
+                <FontAwesomeIcon icon={faXmark} />
+              </button>
+            )}
+          </div>
+        ))}
       </div>
       {shown.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-line-strong px-6 py-12 text-center text-sm text-muted">
-          Every widget is hidden. Use Edit to bring some back.
+        <div className="mt-5 rounded-2xl border border-dashed border-line-strong px-6 py-12 text-center text-sm text-muted">
+          Every widget is hidden. Use Edit to add some back.
+        </div>
+      )}
+
+      {editing && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-background/95 px-4 pb-5 pt-4 shadow-[0_-12px_32px_-12px_rgba(0,0,0,0.25)] backdrop-blur sm:px-8 lg:left-64">
+          <h2 className="flex items-center gap-2.5 font-display text-[22px] text-brand-ink"><FontAwesomeIcon icon={faTableCellsLarge} className="text-[18px]" /> Add widgets</h2>
+          <p className="text-[13px] text-muted">Drag widgets on the page to reorder them. Only you see this layout.</p>
+          {addable.length ? (
+            <ul className="mt-3 flex gap-3 overflow-x-auto pb-1">
+              {addable.map((w) => (
+                <li key={w.key} className="flex-none">
+                  <button type="button" onClick={() => setHidden(w.key, false)}
+                    className="flex h-[64px] w-60 items-center gap-3 rounded-xl border border-line bg-surface px-3 text-left text-[15px] font-semibold text-brand-ink shadow-sm hover:border-brand-ink">
+                    <span className="grid h-10 w-10 flex-none place-items-center rounded-lg bg-subtle"><FontAwesomeIcon icon={WIDGETS[w.key]?.icon ?? faPlus} /></span>
+                    <span className="truncate">{WIDGETS[w.key]?.name ?? w.key}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-3 text-sm text-muted">Every widget is on your page.</p>}
+          <div className="mt-4 flex gap-2">
+            <Button busy={saving} onClick={() => void save()} className="rounded-full px-6">Save</Button>
+            <Button variant="secondary" onClick={() => setDraft(null)} disabled={saving} className="rounded-full px-6">Cancel</Button>
+          </div>
         </div>
       )}
 
@@ -166,12 +256,15 @@ export default function HomePage() {
           onSaved={(status) => { reloadLeave({ requestPolicy: "network-only" }); done(status === "APPROVED" ? "Leave booked." : "Request sent to your manager."); }} />
       )}
       {dialog === "post" && <AnnouncementDialog announcement={editingPost} onClose={() => setDialog(null)} onSaved={done} />}
-      {dialog === "edit" && <EditWidgetsDialog widgets={data.homeLayout} available={available} onClose={() => setDialog(null)} onSaved={() => done("Home page saved.")} />}
+      {dialog === "all" && (
+        <AllAnnouncementsDialog announcements={data.announcements} canEdit={manage} onClose={() => setDialog(null)}
+          onOpen={(a) => { setDialog(null); setReading(a); }} />
+      )}
       {reading && (
         <ReadAnnouncementDialog announcement={reading} canEdit={manage} onClose={() => setReading(null)}
           onEdit={() => { setEditingPost(reading); setReading(null); setDialog("post"); }}
           onDeleted={() => { setReading(null); done("Announcement deleted."); }} />
       )}
-    </>
+    </div>
   );
 }
