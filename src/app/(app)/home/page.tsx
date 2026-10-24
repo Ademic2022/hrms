@@ -6,7 +6,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
-import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "urql";
 
 import {
@@ -99,7 +99,8 @@ export default function HomePage() {
   const [draft, setDraft] = useState<Slot[] | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [expanded, setExpanded] = useState<string[]>([]);
+  // Expanded widgets and where they sit: the grid line they start on and their row.
+  const [expanded, setExpanded] = useState<Record<string, { column: number; row: number }>>({});
   const [added, setAdded] = useState<string | null>(null);
 
   // A widget added in edit mode lands at the end of the page: bring it into view and mark it briefly.
@@ -131,9 +132,31 @@ export default function HomePage() {
     reload({ requestPolicy: "network-only" });
   };
 
+  // Grow towards the side with room, as BambooHR does: a card in the last column widens to its
+  // left, any other to its right, and it keeps its row so the cards around it reflow.
+  function placeFor(key: string) {
+    const el = document.getElementById(`widget-${key}`);
+    const box = document.getElementById("home-grid");
+    if (!el || !box) return { column: 1, row: 1 };
+    const area = box.getBoundingClientRect();
+    const gap = parseFloat(getComputedStyle(box).columnGap) || 0;
+    const width = (area.width - gap * 2 - parseFloat(getComputedStyle(box).paddingLeft) * 2) / 3;
+    const left = el.getBoundingClientRect().left - area.left - parseFloat(getComputedStyle(box).paddingLeft);
+    const column = Math.min(3, Math.max(1, Math.round(left / (width + gap)) + 1));
+    const tops = [...new Set([...box.children].map((c) => Math.round(c.getBoundingClientRect().top)))].sort((a, b) => a - b);
+    const row = tops.indexOf(Math.round(el.getBoundingClientRect().top)) + 1;
+    return { column: column === 3 ? 2 : column, row: Math.max(1, row) };
+  }
   const expandProps = (key: string) => ({
-    expanded: expanded.includes(key),
-    onExpand: () => setExpanded((list) => (list.includes(key) ? list.filter((k) => k !== key) : [...list, key])),
+    expanded: key in expanded,
+    onExpand: () => {
+      if (key in expanded) {
+        setExpanded((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)));
+        return;
+      }
+      const place = placeFor(key);
+      setExpanded((all) => ({ ...all, [key]: place }));
+    },
   });
 
   // Each widget this person can have. Order and hiding come from their saved layout.
@@ -230,11 +253,14 @@ export default function HomePage() {
         {!employeeId && <Notice tone="info">Your account is not linked to an employee record, so there is no time off or team to show.</Notice>}
       </div>
 
-      <div className={cx("mt-5 grid grid-flow-row-dense gap-5 lg:grid-cols-3", editing && "rounded-3xl bg-line/40 p-4 sm:p-6")}>
+      <div id="home-grid" className={cx("mt-5 grid grid-flow-row-dense gap-5 lg:grid-cols-3", editing && "rounded-3xl bg-line/40 p-4 sm:p-6")}>
         {shown.map((w) => (
           <div key={w.key} id={`widget-${w.key}`}
+            style={EXPANDABLE.has(w.key) && expanded[w.key] && !editing
+              ? { "--gc": `${expanded[w.key].column} / span 2`, "--gr": `${expanded[w.key].row}` } as CSSProperties : undefined}
             className={cx("relative min-w-0 scroll-mt-24 rounded-2xl transition-shadow duration-500 [&>section]:h-full",
-              SPAN[w.key] ?? (EXPANDABLE.has(w.key) && expanded.includes(w.key) ? "lg:col-span-2" : undefined),
+              SPAN[w.key] ?? (EXPANDABLE.has(w.key) && expanded[w.key]
+                ? (editing ? "lg:col-span-2" : "lg:[grid-column:var(--gc)] lg:[grid-row:var(--gr)]") : undefined),
               editing && "cursor-grab", dragging === w.key && "opacity-40", added === w.key && "ring-4 ring-brand/40")}
             draggable={editing}
             onDragStart={(e: DragEvent) => { setDragging(w.key); e.dataTransfer.effectAllowed = "move"; }}

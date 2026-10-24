@@ -9,7 +9,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "urql";
 
 import { BarList, ChartTable, DivergingStrip, Legend, MonthColumns, SERIES, TipRow, type Column, type Series } from "@/components/home/Charts";
@@ -783,6 +783,33 @@ export function PeopleWidget({ insights, reports }: { insights: Insights | null 
 
 /* --------------------------------------------------------------- Celebrations */
 
+const CONFETTI_COLORS = ["#f2b84b", "#7cc4a4", "#e88aa8", "#8fb4ec", "#b79ce8", "#f08f6c"];
+
+/** Pieces placed from a seed, so a row's confetti does not jump about between renders. */
+function confettiPieces(seed: string) {
+  let n = [...seed].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const next = () => (n = (n * 1103515245 + 12345) >>> 0) / 2 ** 32;
+  return Array.from({ length: 14 }, (_, i) => ({
+    left: `${8 + next() * 84}%`, size: 4 + Math.round(next() * 3), round: next() > 0.6,
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+    style: { "--delay": `${(next() * 2.8).toFixed(2)}s`, "--fall": `${(2.2 + next() * 1.6).toFixed(2)}s`,
+      "--drift": `${Math.round(next() * 24 - 12)}px`, "--spin": `${Math.round(180 + next() * 360)}deg` },
+  }));
+}
+
+/** Confetti drifting over a celebration row. */
+function Confetti({ seed }: { seed: string }) {
+  const pieces = confettiPieces(seed);
+  return (
+    <span className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+      {pieces.map((p, i) => (
+        <span key={i} className={cx("confetti-piece", p.round && "rounded-full")}
+          style={{ left: p.left, width: p.size, height: p.round ? p.size : p.size + 3, background: p.color, ...p.style } as CSSProperties} />
+      ))}
+    </span>
+  );
+}
+
 export function CelebrationsWidget({ celebrations }: { celebrations: HomeData["home"]["celebrations"] }) {
   const now = today();
   return (
@@ -790,7 +817,8 @@ export function CelebrationsWidget({ celebrations }: { celebrations: HomeData["h
       {celebrations.length ? (
         <ul className="-my-1 space-y-1">
           {celebrations.slice(0, 7).map((c) => (
-            <li key={c.kind + c.person.id} className={cx("flex items-center gap-3 rounded-lg px-1 py-1.5", c.date === now && "bg-subtle")}>
+            <li key={c.kind + c.person.id} className={cx("relative flex items-center gap-3 rounded-lg px-1 py-1.5", c.date === now && "bg-subtle")}>
+              <Confetti seed={c.kind + c.person.id} />
               <Link href={`/employees/${c.person.id}`}><Photo name={c.person.fullName} src={c.person.photoUrl} size={40} /></Link>
               <div className="min-w-0 flex-1">
                 <Link href={`/employees/${c.person.id}`} className="block truncate text-[15px] font-semibold text-ink hover:underline">{c.person.fullName}</Link>
