@@ -114,7 +114,7 @@ export function Vitals({ e }: { e: Profile }) {
         </div>
       )}
       <div className="border-t border-line pt-5">
-        <Link href="/directory?view=chart" className="inline-flex items-center gap-2 text-sm font-medium text-brand-ink hover:underline">
+        <Link href={`/employees?view=chart&focus=${e.id}`} className="inline-flex items-center gap-2 text-sm font-medium text-brand-ink hover:underline">
           <IconExternal size={14} /> View in org chart
         </Link>
       </div>

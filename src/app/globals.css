@@ -89,13 +89,15 @@ input[type="number"] {
 .ui-fade-in { animation: ui-fade-in 0.15s ease-out both; }
 .ui-pop-in { animation: ui-pop-in 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .ui-slide-in { animation: ui-slide-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes ui-slide-in-right { from { transform: translateX(105%); } to { transform: none; } }
+.ui-slide-in-right { animation: ui-slide-in-right 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .ui-skeleton {
   background: linear-gradient(90deg, var(--subtle) 0px, var(--line) 120px, var(--subtle) 240px);
   background-size: 800px 100%;
   animation: ui-shimmer 1.4s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .ui-fade-in, .ui-pop-in, .ui-slide-in, .ui-skeleton { animation: none; }
+  .ui-fade-in, .ui-pop-in, .ui-slide-in, .ui-slide-in-right, .ui-skeleton { animation: none; }
 }
 
 /* Password boxes have their own Show/Hide button; hide the browser's eye (Edge), which is

@@ -4,7 +4,7 @@ import {
   faArrowsRotate, faAward, faBoxOpen, faBriefcase, faBuilding, faBullhorn, faCakeCandles, faCalculator, faCalendarDay,
   faCalendarDays, faCalendarPlus, faCertificate, faChartSimple, faChevronRight, faClipboardCheck, faFaceFrown,
   faGraduationCap, faHandsClapping, faHeartPulse, faIdCard, faLink, faListCheck, faLocationDot, faPeopleGroup, faPen,
-  faPlaneDeparture, faSitemap, faThumbtack, faClipboardList, faChampagneGlasses, faEllipsisVertical, faEnvelope, faPhone, faUser, faUmbrellaBeach, faUserCheck, faUserMinus, faUserPen, faUserPlus,
+  faPlaneDeparture, faSitemap, faThumbtack, faClipboardList, faChampagneGlasses, faEllipsisVertical, faEnvelope, faIdBadge, faPhone, faUser, faUmbrellaBeach, faUserCheck, faUserMinus, faUserPen, faUserPlus,
   faUsers, faVenusMars, faXmark, type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useMutation, useQuery } from "urql";
 
+import { useSnapshot } from "@/components/snapshot/Snapshot";
 import { BarList, ChartTable, DivergingStrip, Legend, MonthColumns, SERIES, TipRow, type Column, type Series } from "@/components/home/Charts";
 import type { LeaveBalanceRow } from "@/components/leave/Leave";
 import { ActionDialog, Button, Checkbox, Dialog, ErrorNote, Field, IconButton, Input, Select, Textarea, cx } from "@/components/ui";
@@ -529,6 +530,7 @@ function localTime(zone: string | null | undefined) {
 }
 
 function ContactCard({ report }: { report: Report }) {
+  const snapshot = useSnapshot();
   const time = localTime(report.timezone);
   const role = [report.person.jobTitle, report.department].filter(Boolean).join(" | ");
   return (
@@ -553,14 +555,20 @@ function ContactCard({ report }: { report: Report }) {
           </a>
         )}
       </span>
-      <Link href={`/employees/${report.person.id}`} className="mt-3 flex items-center gap-2 text-sm font-medium text-brand-ink hover:underline">
-        <FontAwesomeIcon icon={faUser} className="text-xs" /> Open profile
-      </Link>
+      <span className="mt-3 flex items-center gap-4">
+        <button type="button" onClick={() => snapshot.open(report.person.id)} className="flex items-center gap-2 text-sm font-medium text-brand-ink hover:underline">
+          <FontAwesomeIcon icon={faIdBadge} className="text-xs" /> Open snapshot view
+        </button>
+        <Link href={`/employees/${report.person.id}`} className="flex items-center gap-2 text-sm text-muted hover:text-ink hover:underline">
+          <FontAwesomeIcon icon={faUser} className="text-xs" /> Profile
+        </Link>
+      </span>
     </span>
   );
 }
 
 function TileMenu({ report }: { report: Report }) {
+  const snapshot = useSnapshot();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -580,6 +588,9 @@ function TileMenu({ report }: { report: Report }) {
       </button>
       {open && (
         <span role="menu" className="absolute right-0 top-full z-30 mt-1 block w-48 rounded-xl border border-line bg-surface py-1.5 shadow-lg">
+          <button role="menuitem" type="button" onClick={() => { setOpen(false); snapshot.open(report.person.id); }} className={item}>
+            <FontAwesomeIcon icon={faIdBadge} fixedWidth className="text-muted" />Snapshot view
+          </button>
           <Link role="menuitem" href={`/employees/${report.person.id}`} className={item}><FontAwesomeIcon icon={faUser} fixedWidth className="text-muted" />View profile</Link>
           <Link role="menuitem" href={`/employees/${report.person.id}?tab=time_off`} className={item}><FontAwesomeIcon icon={faUmbrellaBeach} fixedWidth className="text-muted" />Time off</Link>
           {report.workEmail && <a role="menuitem" href={`mailto:${report.workEmail}`} className={item}><FontAwesomeIcon icon={faEnvelope} fixedWidth className="text-muted" />Send email</a>}

@@ -436,6 +436,22 @@ type DirectoryEntry {
   workEmail: String!
   managerId: ID
   directReportCount: Int!
+  photoUrl: String
+  workPhone: String!
+  workPhoneExt: String!
+  legalEntity: String
+  locationId: ID
+  legalEntityId: ID
+
+  """City and country of their location, such as Lagos, NG."""
+  place: String
+  timezone: String
+  managerName: String
+
+  """Away on approved leave today, back after this date."""
+  outUntil: Date
+  employeeNumber: String!
+  hireDate: Date
 }
 
 type DirectoryEntryConnection {
@@ -614,6 +630,26 @@ input EmployeeFilter {
   locationId: ID = null
   managerId: ID = null
   includeArchived: Boolean! = false
+  legalEntityIds: [ID!] = null
+  departmentIds: [ID!] = null
+  locationIds: [ID!] = null
+  jobTitleIds: [ID!] = null
+  gradeIds: [ID!] = null
+  employmentTypes: [EmploymentType!] = null
+
+  """Gender values, or "none" for not recorded."""
+  genders: [String!] = null
+
+  """As the home widgets name them: "25–34"…"""
+  ageBands: [String!] = null
+
+  """"Under 1 year", "1–3 years"…"""
+  tenureBands: [String!] = null
+  hiredFrom: Date = null
+  hiredTo: Date = null
+
+  """Only people with direct reports."""
+  managersOnly: Boolean! = false
 }
 
 type EmployeeLeave {
@@ -656,6 +692,25 @@ type EmployeeTask {
 
   """Whether you may tick this task off."""
   canComplete: Boolean!
+}
+
+type EmployeeView {
+  id: ID!
+  name: String!
+  filter: JSON!
+  columns: [String!]!
+}
+
+input EmployeeViewInput {
+  id: ID = null
+  name: String!
+  filter: JSON!
+  columns: [String!]! = []
+}
+
+type EmployeeViewPayload {
+  view: EmployeeView
+  errors: [FieldError!]!
 }
 
 type EmploymentRecord {
@@ -1329,6 +1384,13 @@ type Mutation {
 
   """Save your home widgets: order and which are hidden."""
   saveHomeLayout(widgets: JSON!): [HomeWidget!]!
+  saveEmployeeView(input: EmployeeViewInput!): EmployeeViewPayload!
+  deleteEmployeeView(id: ID!): Boolean!
+
+  """
+  Change fields for many people at once. Each person succeeds or fails on their own.
+  """
+  powerEdit(input: PowerEditInput!): [PowerEditResult!]!
 }
 
 input MyDetailsInput {
@@ -1507,6 +1569,28 @@ type PersonalDetails {
   country: String!
 }
 
+input PowerEditInput {
+  rows: [PowerEditRow!]!
+
+  """For job fields. Today if empty."""
+  effectiveDate: Date = null
+  reason: String = null
+}
+
+type PowerEditResult {
+  employeeId: ID!
+  fullName: String!
+  ok: Boolean!
+  errors: [FieldError!]!
+}
+
+input PowerEditRow {
+  employeeId: ID!
+
+  """{"department": "<id>", "work_phone": "01 …", "custom:shirt": "M"}"""
+  values: JSON!
+}
+
 type PrivateDetails {
   bankName: String!
   bankAccountName: String!
@@ -1571,7 +1655,7 @@ type Query {
   departments: [Department!]!
   jobTitles: [JobTitle!]!
   grades: [Grade!]!
-  employees(filter: EmployeeFilter = null, first: Int! = 50, after: String = null): EmployeeConnection!
+  employees(filter: EmployeeFilter = null, first: Int! = 50, after: String = null, sort: String = null, descending: Boolean! = false): EmployeeConnection!
   employee(id: ID!): Employee!
   leaveTypes(includeInactive: Boolean! = false): [LeaveType!]!
   leavePolicies: [LeavePolicy!]!
@@ -1700,6 +1784,9 @@ type Query {
 
   """Feed items you cleared from What's happening."""
   dismissedFeed: [String!]!
+
+  """Saved People list views, in order."""
+  employeeViews: [EmployeeView!]!
 }
 
 type RecoveryCodesPayload {

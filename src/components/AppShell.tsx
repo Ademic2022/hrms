@@ -10,8 +10,9 @@ import { initials } from "@/lib/format";
 import { PERMS } from "@/lib/permissions";
 import { useSession, type Tenant } from "@/lib/session";
 
-import { IconBuilding, IconCalendarCheck, IconChart, IconCheck, IconClose, IconFile, IconHome, IconLogout, IconMenu, IconPencilGrid, IconSettings, IconShield, IconSitemap, IconUser, IconUsers } from "./icons";
+import { IconCalendarCheck, IconChart, IconCheck, IconClose, IconFile, IconHome, IconLogout, IconMenu, IconPencilGrid, IconSettings, IconShield, IconSitemap, IconUser, IconUsers } from "./icons";
 import { NotificationBell } from "./Notifications";
+import { useSnapshot } from "./snapshot/Snapshot";
 import { IconButton, Loading, Notice, cx } from "./ui";
 
 const LogoutDocument = graphql(`
@@ -69,6 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [, logout] = useMutation(LogoutDocument);
   const [openOn, setOpenOn] = useState<string | null>(null);
   const drawerOpen = openOn === pathname;
+  const snapshot = useSnapshot();
   // Refreshed on each page change, so the badge drops as requests are decided.
   const [{ data: waiting }, recount] = useQuery({ query: WaitingDocument, pause: !me });
   const reviewsChanges = Boolean(me?.permissions.includes(PERMS.employeesManage));
@@ -107,8 +109,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     {
       section: "People",
       items: [
-        { href: "/directory", label: "Directory", show: true, icon: IconBuilding },
-        { href: "/employees", label: "Employees", show: can(PERMS.employeesView), icon: IconUsers },
+        // List, directory and org chart in one place, as BambooHR's People page; without employees.view it opens on the directory.
+        { href: "/employees", label: "People", show: true, icon: IconUsers },
         {
           href: "/employees/requests", label: "Change requests", show: reviewsChanges, icon: IconCheck,
           count: changes?.pendingChangeRequests.length ?? 0,
@@ -235,7 +237,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <div className="min-w-0">
+      {/* Room for the docked snapshot panel on wide screens. */}
+      <div className={cx("min-w-0 transition-[padding] duration-200", snapshot.personId && "xl:pr-[392px]")}>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur lg:hidden">
           <IconButton label="Open menu" onClick={() => setOpenOn(pathname)}>
             <IconMenu />
