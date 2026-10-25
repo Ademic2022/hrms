@@ -6,7 +6,7 @@ import type { Profile } from "./query";
 /** Standard fields as the API's layout names them (apps/core_hr/layout.py FIELDS). */
 export type FieldKey =
   | "employee_number" | "status" | "first_name" | "middle_name" | "last_name" | "preferred_name" | "date_of_birth"
-  | "gender" | "marital_status" | "nationality" | "work_email" | "personal_email" | "phone" | "work_phone"
+  | "gender" | "pronouns" | "marital_status" | "nationality" | "work_email" | "personal_email" | "phone" | "work_phone"
   | "work_phone_ext" | "home_phone" | "linkedin_url" | "twitter" | "facebook" | "address_line1" | "address_line2" | "city" | "state" | "postal_code" | "country";
 
 export interface FieldMeta {
@@ -21,9 +21,14 @@ export interface FieldMeta {
 }
 
 export const GENDERS: { value: Gender; label: string }[] = [
-  { value: "FEMALE", label: "Female" }, { value: "MALE", label: "Male" }, { value: "OTHER", label: "Other" },
-  { value: "UNDISCLOSED", label: "Prefer not to say" },
+  { value: "FEMALE", label: "Female" }, { value: "MALE", label: "Male" }, { value: "NON_BINARY", label: "Non-binary" },
+  { value: "OTHER", label: "Other" }, { value: "UNDISCLOSED", label: "Prefer not to say" },
 ];
+
+/** Non-binary is offered only when the company turned on expanded gender options (kept if already recorded). */
+export function genderOptions(expanded: boolean, current?: string | null) {
+  return GENDERS.filter((g) => expanded || g.value !== "NON_BINARY" || g.value === current);
+}
 export const MARITAL: { value: MaritalStatus; label: string }[] = [
   { value: "SINGLE", label: "Single" }, { value: "MARRIED", label: "Married" }, { value: "DIVORCED", label: "Divorced" },
   { value: "WIDOWED", label: "Widowed" }, { value: "UNDISCLOSED", label: "Prefer not to say" },
@@ -38,6 +43,7 @@ export const FIELDS: Record<FieldKey, FieldMeta> = {
   preferred_name: { label: "Preferred name", input: "text", api: "preferredName", self: "direct" },
   date_of_birth: { label: "Date of birth", input: "date", api: "dateOfBirth" },
   gender: { label: "Gender", input: "select", options: GENDERS, api: "gender" },
+  pronouns: { label: "Pronouns", input: "text", api: "pronouns", self: "direct" },
   marital_status: { label: "Marital status", input: "select", options: MARITAL, api: "maritalStatus" },
   nationality: { label: "Nationality", input: "text", api: "nationality" },
   work_email: { label: "Work email", input: "email", api: "workEmail", wide: true },
@@ -63,7 +69,7 @@ export function rawValue(e: Profile, key: FieldKey): string {
   const values: Record<FieldKey, string | null | undefined> = {
     employee_number: e.employeeNumber, status: e.status, first_name: e.firstName, middle_name: e.middleName,
     last_name: e.lastName, preferred_name: e.preferredName, date_of_birth: e.dateOfBirth, gender: e.gender,
-    marital_status: e.maritalStatus, nationality: p?.nationality, work_email: e.workEmail, personal_email: e.personalEmail,
+    pronouns: p?.pronouns, marital_status: e.maritalStatus, nationality: p?.nationality, work_email: e.workEmail, personal_email: e.personalEmail,
     phone: e.phone, work_phone: e.workPhone, work_phone_ext: e.workPhoneExt, home_phone: p?.homePhone,
     linkedin_url: p?.linkedinUrl, twitter: p?.twitter, facebook: p?.facebook, address_line1: p?.addressLine1, address_line2: p?.addressLine2,
     city: p?.city, state: p?.state, postal_code: p?.postalCode, country: p?.country,
@@ -93,7 +99,7 @@ export function shownValue(e: Profile, key: FieldKey): string | null {
 
 /** Fields whose values only HR and the person see; when hidden, the API returns them empty. */
 export const PERSONAL_KEYS: FieldKey[] = [
-  "date_of_birth", "gender", "marital_status", "nationality", "personal_email", "phone", "home_phone", "linkedin_url",
+  "date_of_birth", "gender", "pronouns", "marital_status", "nationality", "personal_email", "phone", "home_phone", "linkedin_url",
   "twitter", "facebook",
   "address_line1", "address_line2", "city", "state", "postal_code", "country",
 ];

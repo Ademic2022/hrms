@@ -68,7 +68,7 @@ const FIELDS: FieldDef[] = [
   text("preferred_name", "Preferred name", "Personal", (p) => p.preferredName),
   { key: "date_of_birth", label: "Date of birth", group: "Personal", kind: "date", get: (p) => p.dateOfBirth ?? "" },
   { key: "gender", label: "Gender", group: "Personal", kind: "select", get: (p) => p.gender ?? "",
-    options: () => [["FEMALE", "Female"], ["MALE", "Male"], ["OTHER", "Other"], ["UNDISCLOSED", "Prefer not to say"]].map(([value, label]) => ({ value, label })) },
+    options: () => [["FEMALE", "Female"], ["MALE", "Male"], ["NON_BINARY", "Non-binary"], ["OTHER", "Other"], ["UNDISCLOSED", "Prefer not to say"]].map(([value, label]) => ({ value, label })) },
   { key: "marital_status", label: "Marital status", group: "Personal", kind: "select", get: (p) => p.maritalStatus ?? "",
     options: () => [["SINGLE", "Single"], ["MARRIED", "Married"], ["DIVORCED", "Divorced"], ["WIDOWED", "Widowed"], ["UNDISCLOSED", "Prefer not to say"]].map(([value, label]) => ({ value, label })) },
   text("nationality", "Nationality", "Personal", (p) => p.personal?.nationality ?? ""),

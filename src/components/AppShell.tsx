@@ -10,8 +10,9 @@ import { initials } from "@/lib/format";
 import { PERMS } from "@/lib/permissions";
 import { useSession, type Tenant } from "@/lib/session";
 
-import { IconCalendarCheck, IconChart, IconCheck, IconClose, IconFile, IconHome, IconLogout, IconMenu, IconPencilGrid, IconSettings, IconShield, IconSitemap, IconUser, IconUsers } from "./icons";
+import { IconCalendarCheck, IconChart, IconCheck, IconClose, IconFile, IconHome, IconLogout, IconMenu, IconSettings, IconUser, IconUsers } from "./icons";
 import { NotificationBell } from "./Notifications";
+import { AREAS } from "@/components/settings/areas";
 import { useSnapshot } from "./snapshot/Snapshot";
 import { IconButton, Loading, Notice, cx } from "./ui";
 
@@ -34,6 +35,8 @@ interface NavItem {
   icon: ComponentType<{ size?: number; className?: string }>;
   /** A count shown beside the label, such as requests waiting for you. */
   count?: number;
+  /** Lights up for every page under this path, when that differs from href. */
+  match?: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -89,6 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const profileHref = me.employee ? `/employees/${me.employee.id}` : null;
   const waitingCount = waiting?.leaveApprovals.length ?? 0;
+  const settingsHref = AREAS.find((a) => can(a.permission))?.href;
   const sections: { section: string; items: NavItem[] }[] = [
     {
       section: "",
@@ -125,12 +129,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     {
       section: "Administration",
       items: [
-        { href: "/organization", label: "Organization", show: can(PERMS.orgManage), icon: IconSitemap },
-        { href: "/leave/settings", label: "Leave setup", show: can(PERMS.leaveManage), icon: IconPencilGrid },
-        { href: "/settings/benefits", label: "Benefits", show: can(PERMS.employeesManage), icon: IconShield },
-        { href: "/settings/checklists", label: "Onboarding", show: can(PERMS.employeesManage), icon: IconCheck },
-        { href: "/settings/users", label: "Users and access", show: can(PERMS.usersManage), icon: IconShield },
-        { href: "/settings/company", label: "Company settings", show: can(PERMS.tenantManage), icon: IconSettings },
+        // Every setup page lives under Settings, as in BambooHR; it opens on the first area this person may change.
+        { href: settingsHref ?? "", label: "Settings", show: !!settingsHref, icon: IconSettings, match: "/settings" },
       ],
     },
   ]
@@ -166,7 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 // "My profile" is one employee page; it should not also light up when viewing a colleague.
                 // Exact match for pages that have siblings below them (/leave vs /leave/approvals).
                 const exact = item.href === profileHref || item.href === "/leave" || item.href === "/employees";
-                const active = exact ? pathname === item.href : pathname.startsWith(item.href) && pathname !== profileHref;
+                const active = exact ? pathname === item.href : pathname.startsWith(item.match ?? item.href) && pathname !== profileHref;
                 const Icon = item.icon;
                 return (
                   <li key={item.href}>

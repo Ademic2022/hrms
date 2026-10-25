@@ -7,6 +7,7 @@ import { graphql } from "@/gql";
 import type { MeQuery } from "@/gql/graphql";
 
 import { makeClient } from "./api";
+import { setFormatPrefs } from "./format";
 
 export const MeDocument = graphql(`
   query Me {
@@ -17,7 +18,10 @@ export const MeDocument = graphql(`
       employee { id fullName jobTitle { name } }
       mfaEnabled mfaSetupRequired recoveryCodesLeft
     }
-    tenant { name slug primaryColor country currency logoUrl }
+    tenant {
+      name slug primaryColor country currency logoUrl
+      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads
+    }
   }
 `);
 
@@ -47,6 +51,8 @@ function SessionState({ children, reset }: { children: ReactNode; reset: () => v
   const [{ data, fetching, error }] = useQuery({ query: MeDocument, pause: !mounted });
   const value = useMemo<SessionValue>(() => {
     const me = data?.me ?? null;
+    // The company's date and money style (General settings) applies to every formatted value from here on.
+    if (data?.tenant) setFormatPrefs({ dateFormat: data.tenant.dateFormat, showCurrencyCode: data.tenant.showCurrencyCode });
     const granted = new Set(me?.permissions ?? []);
     return {
       loading: !mounted || (fetching && !data && !error),

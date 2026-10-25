@@ -65,7 +65,7 @@ export const TYPE_OPTIONS: { value: EmploymentType; label: string }[] = [
   { value: "CONTRACT", label: "Contract" }, { value: "INTERN", label: "Intern" },
 ];
 export const GENDER_OPTIONS = [
-  { value: "female", label: "Female" }, { value: "male", label: "Male" }, { value: "other", label: "Other" },
+  { value: "female", label: "Female" }, { value: "male", label: "Male" }, { value: "non_binary", label: "Non-binary" }, { value: "other", label: "Other" },
   { value: "undisclosed", label: "Prefer not to say" }, { value: "none", label: "Not recorded" },
 ];
 export const AGE_OPTIONS = ["Under 25", "25–34", "35–44", "45–54", "55 and over", "Not recorded"].map((v) => ({ value: v, label: v }));

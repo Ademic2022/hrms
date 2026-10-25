@@ -303,6 +303,12 @@ type CompanySettings {
   requireAdminMfa: Boolean!
   sessionTimeoutMinutes: Int!
   ipAllowlist: [String!]!
+  dateFormat: String!
+  nameFormat: String!
+  showCurrencyCode: Boolean!
+  employeesEditOwnPhoto: Boolean!
+  expandedGender: Boolean!
+  employeeUploads: Boolean!
 
   """The address this request came from, to put on the allow-list."""
   yourIp: String!
@@ -317,6 +323,12 @@ input CompanySettingsInput {
   requireAdminMfa: Boolean
   sessionTimeoutMinutes: Int
   ipAllowlist: [String!]
+  dateFormat: String
+  nameFormat: String
+  showCurrencyCode: Boolean
+  employeesEditOwnPhoto: Boolean
+  expandedGender: Boolean
+  employeeUploads: Boolean
 }
 
 type CompanySettingsPayload {
@@ -819,6 +831,7 @@ type FilterOption {
 enum Gender {
   FEMALE
   MALE
+  NON_BINARY
   OTHER
   UNDISCLOSED
 }
@@ -1486,6 +1499,7 @@ input MyDetailsInput {
   state: String
   postalCode: String
   country: String
+  pronouns: String
   firstName: String
   middleName: String
   lastName: String
@@ -1634,6 +1648,7 @@ type PermissionInfo {
 
 type PersonalDetails {
   nationality: String!
+  pronouns: String!
   linkedinUrl: String!
   twitter: String!
   facebook: String!
@@ -2254,6 +2269,12 @@ type TenantPublic {
   country: String!
   currency: String!
   logoUrl: String
+  dateFormat: String!
+  nameFormat: String!
+  showCurrencyCode: Boolean!
+  employeesEditOwnPhoto: Boolean!
+  expandedGender: Boolean!
+  employeeUploads: Boolean!
 }
 
 type TenureStep {
@@ -2317,6 +2338,7 @@ input UpdateEmployeeInput {
   gender: Gender
   maritalStatus: MaritalStatus
   nationality: String
+  pronouns: String
   linkedinUrl: String
   addressLine1: String
   addressLine2: String

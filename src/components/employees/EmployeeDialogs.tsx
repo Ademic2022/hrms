@@ -8,8 +8,10 @@ import { z } from "zod";
 
 import { Button, Dialog, ErrorNote, Field, Input, Select } from "@/components/ui";
 import { graphql } from "@/gql";
-import type { EmployeeProfileQuery, EmployeeStatus, EmploymentType, Gender, JobChangeType, OvertimeStatus, PayFrequency, PaySchedule, PayType } from "@/gql/graphql";
+import type { EmployeeProfileQuery, EmployeeStatus, EmploymentType, JobChangeType, OvertimeStatus, PayFrequency, PaySchedule, PayType } from "@/gql/graphql";
+import { genderOptions } from "@/components/profile/fields";
 import { reportErrors, today } from "@/lib/forms";
+import { useSession } from "@/lib/session";
 
 export type ProfileEmployee = EmployeeProfileQuery["employee"];
 
@@ -34,13 +36,6 @@ const UpdateEmployeeDocument = graphql(`
   }
 `);
 
-const GENDERS: { value: Gender; label: string }[] = [
-  { value: "FEMALE", label: "Female" },
-  { value: "MALE", label: "Male" },
-  { value: "OTHER", label: "Other" },
-  { value: "UNDISCLOSED", label: "Prefer not to say" },
-];
-
 const personalSchema = z.object({
   firstName: z.string().trim().min(1, "Enter a first name."),
   middleName: z.string().trim(),
@@ -50,13 +45,14 @@ const personalSchema = z.object({
   personalEmail: optionalEmail,
   phone: z.string().trim().max(20, "Use at most 20 characters."),
   dateOfBirth: optionalDate,
-  gender: z.union([z.literal(""), z.enum(["FEMALE", "MALE", "OTHER", "UNDISCLOSED"])]),
+  gender: z.union([z.literal(""), z.enum(["FEMALE", "MALE", "NON_BINARY", "OTHER", "UNDISCLOSED"])]),
 });
 
 type PersonalValues = z.infer<typeof personalSchema>;
 const PERSONAL_FIELDS = Object.keys(personalSchema.shape) as (keyof PersonalValues)[];
 
 export function EditPersonalDialog({ employee: e, onClose, onSaved }: DialogProps) {
+  const { tenant } = useSession();
   const [, update] = useMutation(UpdateEmployeeDocument);
   const [formError, setFormError] = useState<string>();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<PersonalValues>({
@@ -104,7 +100,7 @@ export function EditPersonalDialog({ employee: e, onClose, onSaved }: DialogProp
           <Field label="Gender" optional>
             <Select {...register("gender")}>
               <option value="">Not recorded</option>
-              {GENDERS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+              {genderOptions(Boolean(tenant?.expandedGender), e.gender).map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
             </Select>
           </Field>
         </div>

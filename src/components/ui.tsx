@@ -623,9 +623,10 @@ export function ActionDialog({
 /* ------------------------------------------------------------- Form layout */
 
 /** A titled block of a long form: explanation on the left, fields on the right. */
-export function FormSection({ title, description, children }: { title: string; description?: ReactNode; children: ReactNode }) {
+/** stacked: title above the fields, for narrow spaces such as a settings panel. */
+export function FormSection({ title, description, stacked, children }: { title: string; description?: ReactNode; stacked?: boolean; children: ReactNode }) {
   return (
-    <section className="grid gap-x-10 gap-y-4 border-b border-line py-8 first:pt-0 last:border-b-0 lg:grid-cols-[260px_1fr]">
+    <section className={cx("grid gap-x-10 gap-y-4 border-b border-line py-8 first:pt-0 last:border-b-0", !stacked && "lg:grid-cols-[260px_1fr]")}>
       <div>
         <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
         {description && <p className="mt-1 text-sm leading-relaxed text-muted">{description}</p>}

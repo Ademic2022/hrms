@@ -5,7 +5,8 @@ import { useMutation, useQuery } from "urql";
 
 import { IconPlus } from "@/components/icons";
 import { rates } from "@/components/profile/BenefitsBlock";
-import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, Input, Loading, Notice, PageHeader, Select, Table, TD, TH, Textarea } from "@/components/ui";
+import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, Input, Loading, Notice, Select, Table, TD, TH, Textarea } from "@/components/ui";
+import { SettingsIntro } from "@/components/settings/Intro";
 import { graphql } from "@/gql";
 import type { BenefitBasis, BenefitKind, BenefitPlansSetupQuery } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
@@ -120,7 +121,7 @@ export default function BenefitsSetupPage() {
 
   return (
     <>
-      <PageHeader title="Benefits" subtitle="The plans the company offers. Enrol people from the Benefits tab of their record." />
+      <SettingsIntro>The plans the company offers. Enrol people from the Benefits tab of their record.</SettingsIntro>
       {saved && <Notice tone="success">{saved}</Notice>}
       <Card flush title="Benefit plans" description="Starts with the Nigerian statutory schemes. Rates are for reference; payroll works out deductions."
         actions={<Button size="sm" icon={<IconPlus size={15} />} onClick={() => setEditing({ plan: null })}>Add plan</Button>}>

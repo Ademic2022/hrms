@@ -4,7 +4,8 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "urql";
 
 import { IconPlus } from "@/components/icons";
-import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, Input, Loading, Notice, PageHeader, Select, Table, TD, TH } from "@/components/ui";
+import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, Input, Loading, Notice, Select, Table, TD, TH } from "@/components/ui";
+import { SettingsIntro } from "@/components/settings/Intro";
 import { graphql } from "@/gql";
 import type { UsersAdminQuery } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
@@ -220,8 +221,7 @@ export default function UsersPage() {
 
   return (
     <>
-      <PageHeader title="Users and access" subtitle="Who can sign in, what they can do, and whose records they reach."
-        actions={<Button icon={<IconPlus size={16} />} onClick={() => { setSaved(undefined); setEditing({ member: null }); }}>Invite someone</Button>} />
+      <SettingsIntro actions={<Button icon={<IconPlus size={16} />} onClick={() => { setSaved(undefined); setEditing({ member: null }); }}>Invite someone</Button>}>Who can sign in, what they can do, and whose records they reach.</SettingsIntro>
       {saved && <Notice tone="success">{saved}</Notice>}
       <Card flush>
         <Table>

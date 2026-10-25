@@ -85,10 +85,11 @@ export function useDownload() {
 
 /* ------------------------------------------------------------------ Upload */
 
-function UploadDialog({ employeeId, employeeName, onClose, onSaved }: {
-  employeeId: string; employeeName: string; onClose: () => void; onSaved: () => void;
+/** own: the employee adding to their own record; the file goes to Employee uploads, so no category is asked. */
+function UploadDialog({ employeeId, employeeName, own, onClose, onSaved }: {
+  employeeId: string; employeeName: string; own?: boolean; onClose: () => void; onSaved: () => void;
 }) {
-  const [{ data }] = useQuery({ query: CategoriesDocument });
+  const [{ data }] = useQuery({ query: CategoriesDocument, pause: own });
   const categories = data?.documentCategories.filter((c) => c.isActive) ?? [];
   const [categoryId, setCategoryId] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -106,12 +107,12 @@ function UploadDialog({ employeeId, employeeName, onClose, onSaved }: {
     const missing: Record<string, string> = {};
     if (!file) missing.file = "Choose a file.";
     else if (file.size > 15 * 1024 * 1024) missing.file = "Files can be at most 15 MB.";
-    if (chosen?.requiresExpiry && !expiresOn) missing.expiresOn = `${chosen.name} documents need an expiry date.`;
+    if (!own && chosen?.requiresExpiry && !expiresOn) missing.expiresOn = `${chosen.name} documents need an expiry date.`;
     setErrors(missing);
-    if (Object.keys(missing).length || !file || !chosen) return;
+    if (Object.keys(missing).length || !file || (!chosen && !own)) return;
     const form = new FormData();
     form.set("employee", employeeId);
-    form.set("category", chosen.id);
+    if (chosen && !own) form.set("category", chosen.id);
     form.set("title", title.trim());
     form.set("notes", notes.trim());
     if (expiresOn) form.set("expiresOn", expiresOn);
@@ -131,7 +132,7 @@ function UploadDialog({ employeeId, employeeName, onClose, onSaved }: {
   }
 
   return (
-    <Dialog open onClose={onClose} title="Upload a document" description={`For ${employeeName}. Who can see it depends on the category.`}
+    <Dialog open onClose={onClose} title="Upload a document" description={own ? "Saved under Employee uploads, where you and HR can see it." : `For ${employeeName}. Who can see it depends on the category.`}
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
         <Button type="submit" form="upload-form" busy={busy} icon={<IconUpload size={16} />}>Upload</Button>
@@ -150,12 +151,12 @@ function UploadDialog({ employeeId, employeeName, onClose, onSaved }: {
             }} />
           </label>
         </Field>
-        <Field label="Category">
+        {!own && <Field label="Category">
           <Select value={chosen?.id ?? ""} onChange={(e) => setCategoryId(e.target.value)}>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
-        </Field>
-        {chosen && (
+        </Field>}
+        {chosen && !own && (
           <p className="-mt-2 text-xs text-muted">
             {[chosen.employeeCanView ? "The employee can see it" : "Hidden from the employee",
               chosen.managerCanView ? "their managers can see it" : "hidden from managers"].join("; ")}. HR always can.
@@ -164,9 +165,9 @@ function UploadDialog({ employeeId, employeeName, onClose, onSaved }: {
         <Field label="Title">
           <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Employment contract 2026" />
         </Field>
-        <Field label="Expires on" optional={!chosen?.requiresExpiry} error={errors.expiresOn} hint="HR is reminded 30 and 7 days before, and on the day.">
+        {!own && <Field label="Expires on" optional={!chosen?.requiresExpiry} error={errors.expiresOn} hint="HR is reminded 30 and 7 days before, and on the day.">
           <Input type="date" value={expiresOn} aria-invalid={!!errors.expiresOn} onChange={(e) => setExpiresOn(e.target.value)} />
-        </Field>
+        </Field>}
         <Field label="Notes" optional>
           <Textarea rows={2} value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} />
         </Field>
@@ -233,8 +234,8 @@ function EditDialog({ doc, onClose, onSaved }: { doc: DocumentRow; onClose: () =
 /* -------------------------------------------------------------------- Card */
 
 /** The documents on an employee's profile. Renders nothing for viewers who may see none. */
-export function DocumentsCard({ employeeId, employeeName, canManage, frame = cardFrame("Documents") }: {
-  employeeId: string; employeeName: string; canManage: boolean; frame?: Frame;
+export function DocumentsCard({ employeeId, employeeName, canManage, canUploadOwn = false, frame = cardFrame("Documents") }: {
+  employeeId: string; employeeName: string; canManage: boolean; canUploadOwn?: boolean; frame?: Frame;
 }) {
   const [{ data, error }, reload] = useQuery({ query: EmployeeDocumentsDocument, variables: { employeeId } });
   const [open, setOpen] = useState<"upload" | DocumentRow | null>(null);
@@ -250,12 +251,12 @@ export function DocumentsCard({ employeeId, employeeName, canManage, frame = car
     if (docs && window.location.hash === "#documents") card.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [docs]);
 
-  if (error || !docs || (!docs.length && !canManage)) return null;
+  if (error || !docs || (!docs.length && !canManage && !canUploadOwn)) return null;
 
   return (
     <div id="documents" ref={card} className="scroll-mt-20">
       <FrameSlot frame={frame} flush description={docs.length ? `${docs.length} on file` : undefined}
-        actions={canManage ? <Button size="sm" variant="secondary" icon={<IconUpload size={15} />} onClick={() => setOpen("upload")}>Upload</Button> : undefined}>
+        actions={canManage || canUploadOwn ? <Button size="sm" variant="secondary" icon={<IconUpload size={15} />} onClick={() => setOpen("upload")}>Upload</Button> : undefined}>
         {downloadError && <div className="p-4 pb-0"><ErrorNote error={downloadError} /></div>}
         {docs.length ? (
           <ul className="divide-y divide-line">
@@ -289,7 +290,7 @@ export function DocumentsCard({ employeeId, employeeName, canManage, frame = car
       </FrameSlot>
 
       {open === "upload" && (
-        <UploadDialog employeeId={employeeId} employeeName={employeeName} onClose={() => setOpen(null)}
+        <UploadDialog employeeId={employeeId} employeeName={employeeName} own={!canManage} onClose={() => setOpen(null)}
           onSaved={() => { setOpen(null); refresh(); }} />
       )}
       {open && open !== "upload" && (

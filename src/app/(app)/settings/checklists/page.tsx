@@ -5,7 +5,9 @@ import { useMutation, useQuery } from "urql";
 
 import { IconPlus } from "@/components/icons";
 import { ASSIGNEES } from "@/components/profile/ChecklistBlock";
-import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, Input, Loading, Notice, PageHeader, Select, Table, Tabs, TD, TH } from "@/components/ui";
+import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, Input, Loading, Notice, Select, Table, TD, TH } from "@/components/ui";
+import { useSettingsTab } from "@/components/settings/areas";
+import { SettingsIntro } from "@/components/settings/Intro";
 import { graphql } from "@/gql";
 import type { ChecklistKind, TaskAssignee, TaskTemplatesQuery } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
@@ -91,7 +93,7 @@ function TemplateDialog({ kind, template, onClose, onSaved }: { kind: ChecklistK
 export default function ChecklistSetupPage() {
   const { can } = useSession();
   const [{ data, error }, reload] = useQuery({ query: TemplatesDocument });
-  const [kind, setKind] = useState<ChecklistKind>("ONBOARDING");
+  const [kind] = useSettingsTab<ChecklistKind>(["ONBOARDING", "OFFBOARDING"], "ONBOARDING");
   const [editing, setEditing] = useState<{ template: Template | null } | null>(null);
   const [saved, setSaved] = useState<string>();
   if (!can(PERMS.employeesManage)) return <ErrorNote error="You do not have access to checklist setup." />;
@@ -101,12 +103,8 @@ export default function ChecklistSetupPage() {
 
   return (
     <>
-      <PageHeader title="Onboarding and offboarding" subtitle="The tasks copied onto a record when you start someone's checklist." />
+      <SettingsIntro>The tasks copied onto a record when you start someone&apos;s checklist.</SettingsIntro>
       {saved && <Notice tone="success">{saved}</Notice>}
-      <Tabs value={kind} onChange={(k) => { setKind(k); setSaved(undefined); }} tabs={[
-        { key: "ONBOARDING", label: "Onboarding", count: data.taskTemplates.filter((t) => t.kind === "ONBOARDING").length },
-        { key: "OFFBOARDING", label: "Offboarding", count: data.taskTemplates.filter((t) => t.kind === "OFFBOARDING").length },
-      ]} />
       <Card flush title={kind === "ONBOARDING" ? "Onboarding tasks" : "Offboarding tasks"}
         description={kind === "ONBOARDING" ? "Due dates count from the start date." : "Due dates count from the last day."}
         actions={<Button size="sm" icon={<IconPlus size={15} />} onClick={() => setEditing({ template: null })}>Add task</Button>}>

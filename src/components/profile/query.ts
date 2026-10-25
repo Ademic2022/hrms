@@ -19,7 +19,7 @@ export const EmployeeProfileDocument = graphql(`
       dateOfBirth
       gender
       maritalStatus
-      personal { nationality linkedinUrl twitter facebook homePhone addressLine1 addressLine2 city state postalCode country }
+      personal { nationality pronouns linkedinUrl twitter facebook homePhone addressLine1 addressLine2 city state postalCode country }
       photoUrl
       status
       hireDate

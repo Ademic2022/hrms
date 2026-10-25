@@ -168,7 +168,7 @@ function EmployeeRecord() {
     return runs.map((run, index): ReactNode => {
       const key = `${section.key}-${index}`;
       if (run.kind === "fields") {
-        return <FieldsSection key={key} title={section.title} icon={section.icon} rows={rowsFor(run.items, e)}
+        return <FieldsSection key={key} title={section.title} icon={section.icon} rows={rowsFor(run.items, e, Boolean(tenant?.expandedGender))}
           employee={e} canManage={manage} isSelf={self} onSaved={saved} />;
       }
       const item = run.items[0];
@@ -199,7 +199,8 @@ function EmployeeRecord() {
         case "emergency_contacts":
           return <EmergencyContactsCard key={key} employee={e} canEdit={manage || self} frame={sectionFrame(title, section.icon)} onChanged={() => saved("Emergency contacts saved.")} />;
         case "documents":
-          return <DocumentsCard key={key} employeeId={e.id} employeeName={e.fullName} canManage={can(PERMS.documentsManage)} frame={sectionFrame(title, section.icon)} />;
+          return <DocumentsCard key={key} employeeId={e.id} employeeName={e.fullName} canManage={can(PERMS.documentsManage)}
+            canUploadOwn={self && Boolean(tenant?.employeeUploads)} frame={sectionFrame(title, section.icon)} />;
         default:
           return null;
       }
@@ -213,7 +214,7 @@ function EmployeeRecord() {
     <>
       <ProfileHeader e={e} tabs={layout.tabs} active={tab.key} onSelect={select}
         onCustomizeTabs={manage ? () => setDialog("tabs") : undefined}
-        canChangePhoto={self || manage} onPhoto={() => saved("Photo updated.")}
+        canChangePhoto={(self && Boolean(tenant?.employeesEditOwnPhoto)) || manage} onPhoto={() => saved("Photo updated.")}
         onError={(text) => setNotice({ tone: "error", text })}
         actions={manage ? (
           <>

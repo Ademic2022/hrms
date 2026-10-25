@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatDate, formatDays, formatMoney, formatRange, humanize, initials } from "./format";
+import { formatDate, formatDays, formatMoney, formatRange, humanize, initials, setFormatPrefs } from "./format";
 
 describe("format", () => {
   it("keeps calendar dates on their day in any time zone", () => {
@@ -11,6 +11,16 @@ describe("format", () => {
   it("formats decimal-string money without losing the currency", () => {
     expect(formatMoney("450000.00", "NGN", "en-NG")).toContain("450,000");
     expect(formatMoney("12.5", "USD", "en-US")).toBe("$12.50");
+  });
+
+  it("follows the company's date and currency settings", () => {
+    setFormatPrefs({ dateFormat: "dd/mm/yyyy" });
+    expect(formatDate("2026-10-05")).toBe("05/10/2026");
+    expect(formatRange("2026-10-05", "2026-10-07")).toBe("05/10/2026 – 07/10/2026");
+    setFormatPrefs({ dateFormat: "yyyy-mm-dd", showCurrencyCode: true });
+    expect(formatDate("2026-10-05")).toBe("2026-10-05");
+    expect(formatMoney("12.5", "USD", "en-US")).toContain("USD");
+    setFormatPrefs({ dateFormat: "d_mmm_yyyy", showCurrencyCode: false });
   });
 
   it("humanizes enum values", () => {

@@ -8,8 +8,9 @@ import { IconLock } from "@/components/icons";
 import { Button, ErrorNote, Input, Select, cx } from "@/components/ui";
 import { graphql } from "@/gql";
 import { errorMessage } from "@/lib/api";
+import { useSession } from "@/lib/session";
 
-import { FIELDS, PERSONAL_KEYS, rawValue, shownValue, type FieldKey } from "./fields";
+import { FIELDS, PERSONAL_KEYS, genderOptions, rawValue, shownValue, type FieldKey } from "./fields";
 import type { LayoutItem, Profile } from "./query";
 import { ProfileSection } from "./Section";
 
@@ -40,14 +41,16 @@ type Row =
 
 const camel = (key: string) => key.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
 
-export function rowsFor(items: LayoutItem[], e: Profile): Row[] {
+/** expandedGender: the company shows pronouns (General settings); otherwise the field is left out. */
+export function rowsFor(items: LayoutItem[], e: Profile, expandedGender = false): Row[] {
   const seesPersonal = e.personal !== null;
   const rows: Row[] = [];
   for (const item of items) {
     if (item.kind === "field" || item.kind === "group") {
       const keys = (item.kind === "group" ? item.fields : [item.key]) as FieldKey[];
       // Without access to personal details the API sends them empty; leave them out rather than show blanks.
-      const visible = keys.filter((k) => FIELDS[k] && (seesPersonal || !PERSONAL_KEYS.includes(k)));
+      const visible = keys.filter((k) => FIELDS[k] && (seesPersonal || !PERSONAL_KEYS.includes(k))
+        && (k !== "pronouns" || expandedGender || Boolean(rawValue(e, k))));
       if (visible.length) rows.push({ kind: "fields", id: item.id, keys: visible });
     } else if (item.kind === "custom") {
       const value = e.customValues.find((v) => v.field.key === item.key);
@@ -70,6 +73,7 @@ export function FieldsSection({ title, icon, rows, employee: e, canManage, isSel
   title: string; icon: string; rows: Row[]; employee: Profile; canManage: boolean; isSelf: boolean;
   onSaved: (message: string) => void;
 }) {
+  const { tenant } = useSession();
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -186,7 +190,7 @@ export function FieldsSection({ title, icon, rows, employee: e, canManage, isSel
                       {meta.label}
                       {!canManage && meta.self === "review" && <span className="ml-1.5 text-xs font-normal text-muted">HR approves</span>}
                     </span>
-                    {input(k, meta.label, meta.input, meta.options)}
+                    {input(k, meta.label, meta.input, k === "gender" ? genderOptions(Boolean(tenant?.expandedGender), rawValue(e, k)) : meta.options)}
                     {errors[k] && <span className="mt-1.5 block text-xs text-red-600">{errors[k]}</span>}
                   </label>
                 );

@@ -376,7 +376,7 @@ export function PeopleList() {
                   <>
                     <div className="my-1.5 border-t border-line" />
                     <MenuItem icon={faFileImport} href="/employees/import">Import employees</MenuItem>
-                    <MenuItem icon={faListCheck} href="/employees/fields">Custom fields</MenuItem>
+                    <MenuItem icon={faListCheck} href="/settings/fields">Custom fields</MenuItem>
                   </>
                 )}
               </>
