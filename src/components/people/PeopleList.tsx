@@ -147,9 +147,9 @@ function Group({ title, options, values, onChange }: {
   );
 }
 
-function FilterPanel({ filter, onChange, total, options, onClose }: {
+export function FilterPanel({ filter, onChange, total, options, onClose }: {
   filter: PeopleFilter; onChange: (f: PeopleFilter) => void; total: number | undefined;
-  options: { departments: Opt[]; locations: Opt[]; legalEntities: Opt[]; jobTitles: Opt[]; grades: Opt[] }; onClose: () => void;
+  options: { departments: Opt[]; locations: Opt[]; legalEntities: Opt[]; jobTitles: Opt[]; grades: Opt[] }; onClose?: () => void;
 }) {
   const set = <K extends keyof PeopleFilter>(key: K, value: PeopleFilter[K]) => onChange({ ...filter, [key]: value });
   return (
@@ -158,7 +158,7 @@ function FilterPanel({ filter, onChange, total, options, onClose }: {
         <span className="flex items-center gap-2.5 font-semibold"><FontAwesomeIcon icon={faUsers} />{total ?? "…"} {total === 1 ? "person" : "people"}</span>
         <span className="flex items-center gap-1">
           {filterCount(filter) > 0 && <button type="button" onClick={() => onChange({})} className="rounded px-2 text-xs text-white/85 hover:text-white hover:underline">Clear</button>}
-          <button type="button" onClick={onClose} aria-label="Close filters" className="grid h-7 w-7 place-items-center rounded-full hover:bg-white/15"><FontAwesomeIcon icon={faXmark} /></button>
+          {onClose && <button type="button" onClick={onClose} aria-label="Close filters" className="grid h-7 w-7 place-items-center rounded-full hover:bg-white/15"><FontAwesomeIcon icon={faXmark} /></button>}
         </span>
       </div>
       <div className="mt-2 px-1">

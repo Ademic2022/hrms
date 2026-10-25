@@ -19,8 +19,6 @@ type Documents = {
     "\n  mutation ConfirmMfaSetup($code: String!) {\n    confirmMfaSetup(code: $code) { codes errors { field message } }\n  }\n": typeof types.ConfirmMfaSetupDocument,
     "\n  mutation DisableMfa($password: String!) {\n    disableMfa(password: $password) { ok errors { field message } }\n  }\n": typeof types.DisableMfaDocument,
     "\n  mutation NewRecoveryCodes($code: String!) {\n    newRecoveryCodes(code: $code) { codes errors { field message } }\n  }\n": typeof types.NewRecoveryCodesDocument,
-    "\n  query DocumentsAdmin($within: Int!) {\n    expiringDocuments(withinDays: $within) {\n      id title expiresOn\n      employee { id fullName }\n      category { id name }\n    }\n    documentCategories(includeInactive: true) { id name employeeCanView managerCanView requiresExpiry isActive }\n  }\n": typeof types.DocumentsAdminDocument,
-    "\n  mutation SaveDocumentCategory($input: SaveDocumentCategoryInput!) {\n    saveDocumentCategory(input: $input) { category { id } errors { field message } }\n  }\n": typeof types.SaveDocumentCategoryDocument,
     "\n  mutation ArchiveEmployee($id: ID!) {\n    archiveEmployee(id: $id) { employee { id } errors { field message } }\n  }\n": typeof types.ArchiveEmployeeDocument,
     "\n  mutation SendEmployeePasswordReset($employeeId: ID!) {\n    sendEmployeePasswordReset(employeeId: $employeeId)\n  }\n": typeof types.SendEmployeePasswordResetDocument,
     "\n  query EmployeeAccess($id: ID!) {\n    employee(id: $id) { id access { email roles isActive invitePending } }\n  }\n": typeof types.EmployeeAccessDocument,
@@ -30,6 +28,13 @@ type Documents = {
     "\n  mutation HireEmployee($input: HireEmployeeInput!) {\n    hireEmployee(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": typeof types.HireEmployeeDocument,
     "\n  query PendingChanges {\n    pendingChangeRequests { id employeeId employeeName createdAt canDecide lines { field label current requested } }\n  }\n": typeof types.PendingChangesDocument,
     "\n  mutation DecideChangeRequest($id: ID!, $approve: Boolean!, $note: String) {\n    decideChangeRequest(id: $id, approve: $approve, note: $note) { request { id status } errors { field message } }\n  }\n": typeof types.DecideChangeRequestDocument,
+    "\n  query CompanyFolders {\n    companyFolders { id name fileCount }\n  }\n": typeof types.CompanyFoldersDocument,
+    "\n  query CompanyFiles($folderId: ID, $search: String) {\n    companyFiles(folderId: $folderId, search: $search) { id title originalName contentType size shared folderId uploadedBy createdAt }\n  }\n": typeof types.CompanyFilesDocument,
+    "\n  mutation SaveCompanyFolder($name: String!, $id: ID) {\n    saveCompanyFolder(name: $name, id: $id) { folder { id name } errors { field message } }\n  }\n": typeof types.SaveCompanyFolderDocument,
+    "\n  mutation DeleteCompanyFolder($id: ID!) {\n    deleteCompanyFolder(id: $id)\n  }\n": typeof types.DeleteCompanyFolderDocument,
+    "\n  mutation UpdateCompanyFile($input: UpdateCompanyFileInput!) {\n    updateCompanyFile(input: $input) { file { id } errors { field message } }\n  }\n": typeof types.UpdateCompanyFileDocument,
+    "\n  mutation RemoveCompanyFiles($ids: [ID!]!) {\n    removeCompanyFiles(ids: $ids)\n  }\n": typeof types.RemoveCompanyFilesDocument,
+    "\n  mutation CompanyFileDownloadUrl($id: ID!) {\n    companyFileDownloadUrl(id: $id)\n  }\n": typeof types.CompanyFileDownloadUrlDocument,
     "\n  query HomeExpiring {\n    expiringDocuments(withinDays: 30) { id }\n  }\n": typeof types.HomeExpiringDocument,
     "\n  query HomeMyPhoto($id: ID!) {\n    employee(id: $id) { id photoUrl }\n  }\n": typeof types.HomeMyPhotoDocument,
     "\n  mutation SaveHomeLayout($widgets: JSON!) {\n    saveHomeLayout(widgets: $widgets) { key hidden }\n  }\n": typeof types.SaveHomeLayoutDocument,
@@ -54,6 +59,8 @@ type Documents = {
     "\n  mutation SaveGrade($input: SaveGradeInput!) {\n    saveGrade(input: $input) { grade { id } errors { field message } }\n  }\n": typeof types.SaveGradeDocument,
     "\n  query RunReport($key: String!, $params: ReportParams) {\n    runReport(key: $key, params: $params) {\n      title chart note start end rows\n      columns { key label kind }\n      summary { label value }\n    }\n  }\n": typeof types.RunReportDocument,
     "\n  query ReportFilterOptions {\n    legalEntities { id name isActive }\n    locations { id name isActive }\n    departments { id name isActive }\n  }\n": typeof types.ReportFilterOptionsDocument,
+    "\n  query RunCustomReport($id: ID!) {\n    runCustomReport(id: $id) { title chart note rows columns { key label kind } summary { label value } }\n  }\n": typeof types.RunCustomReportDocument,
+    "\n  mutation DeleteCustomReport($id: ID!) {\n    deleteCustomReport(id: $id)\n  }\n": typeof types.DeleteCustomReportDocument,
     "\n  query BenefitPlansSetup {\n    benefitPlans(includeInactive: true) {\n      id name kind provider description employeeRate employerRate basis statutory isActive enrolledCount\n    }\n  }\n": typeof types.BenefitPlansSetupDocument,
     "\n  mutation SaveBenefitPlan($input: SaveBenefitPlanInput!) {\n    saveBenefitPlan(input: $input) { plan { id } errors { field message } }\n  }\n": typeof types.SaveBenefitPlanDocument,
     "\n  query TaskTemplates {\n    taskTemplates { id kind title description category assignee dueOffset isActive }\n  }\n": typeof types.TaskTemplatesDocument,
@@ -77,7 +84,6 @@ type Documents = {
     "\n  mutation SignUp($input: SignUpInput!) {\n    signUp(input: $input) { url errors { field message } }\n  }\n": typeof types.SignUpDocument,
     "\n  mutation Logout {\n    logout\n  }\n": typeof types.LogoutDocument,
     "\n  query WaitingApprovals {\n    leaveApprovals { id }\n  }\n": typeof types.WaitingApprovalsDocument,
-    "\n  query ChangesWaiting {\n    pendingChangeRequests { id }\n  }\n": typeof types.ChangesWaitingDocument,
     "\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": typeof types.NotificationListDocument,
     "\n  query UnreadNotificationCount {\n    unreadNotificationCount\n  }\n": typeof types.UnreadNotificationCountDocument,
     "\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n": typeof types.MarkNotificationsReadDocument,
@@ -87,6 +93,8 @@ type Documents = {
     "\n  mutation DocumentDownloadUrl($id: ID!) {\n    documentDownloadUrl(id: $id)\n  }\n": typeof types.DocumentDownloadUrlDocument,
     "\n  mutation UpdateDocument($input: UpdateDocumentInput!) {\n    updateDocument(input: $input) { document { id } errors { field message } }\n  }\n": typeof types.UpdateDocumentDocument,
     "\n  mutation RemoveDocument($id: ID!) {\n    removeDocument(id: $id)\n  }\n": typeof types.RemoveDocumentDocument,
+    "\n  query DocumentsAdmin($within: Int!) {\n    expiringDocuments(withinDays: $within) {\n      id title expiresOn\n      employee { id fullName }\n      category { id name }\n    }\n    documentCategories(includeInactive: true) { id name employeeCanView managerCanView requiresExpiry isActive }\n  }\n": typeof types.DocumentsAdminDocument,
+    "\n  mutation SaveDocumentCategory($input: SaveDocumentCategoryInput!) {\n    saveDocumentCategory(input: $input) { category { id } errors { field message } }\n  }\n": typeof types.SaveDocumentCategoryDocument,
     "\n  mutation UpdateEmployee($input: UpdateEmployeeInput!) {\n    updateEmployee(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": typeof types.UpdateEmployeeDocument,
     "\n  query JobOptions {\n    legalEntities { id name isActive }\n    departments { id name isActive legalEntity { id } }\n    locations { id name isActive legalEntity { id } }\n    jobTitles { id name isActive }\n    grades { id name isActive }\n    employees(filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }, first: 100) { nodes { id fullName } }\n  }\n": typeof types.JobOptionsDocument,
     "\n  mutation ChangeEmployeeJob($input: ChangeJobInput!) {\n    changeEmployeeJob(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": typeof types.ChangeEmployeeJobDocument,
@@ -152,8 +160,13 @@ type Documents = {
     "\n  query EmployeeProfile($id: ID!) {\n    employee(id: $id) {\n      id\n      employeeNumber\n      fullName\n      firstName\n      middleName\n      lastName\n      preferredName\n      workEmail\n      personalEmail\n      phone\n      workPhone\n      workPhoneExt\n      dateOfBirth\n      gender\n      maritalStatus\n      personal { nationality linkedinUrl twitter facebook homePhone addressLine1 addressLine2 city state postalCode country }\n      photoUrl\n      status\n      hireDate\n      probationEndDate\n      terminationDate\n      terminationReason\n      employmentType\n      archivedAt\n      legalEntity { id name }\n      department { id name }\n      location { id name city country timezone }\n      jobTitle { id name description }\n      grade { id name }\n      manager { id fullName jobTitle { name } photoUrl }\n      directReports { id fullName jobTitle { name } }\n      emergencyContacts {\n        id name relationship phone workPhone workPhoneExt homePhone email isPrimary\n        addressLine1 addressLine2 city state postalCode country\n      }\n      privateDetails { bankName bankAccountName bankAccountNumber nationalId taxId pensionId masked }\n      customValues { value field { id key name fieldType choices helpText hrOnly } }\n      tableRows { id tableKey values createdAt }\n      compensation { amount currency frequency effectiveDate payType paySchedule overtime }\n      compensationHistory { id amount currency frequency effectiveDate reason payType paySchedule overtime comment }\n      bonusTarget { percent amount }\n      statusHistory { id effectiveDate status comment }\n      notes { id body authorName createdAt }\n      employmentHistory {\n        id effectiveDate changeType reason\n        jobTitle { name }\n        department { name }\n        location { name }\n        grade { name }\n        manager { fullName }\n        employmentType\n      }\n    }\n  }\n": typeof types.EmployeeProfileDocument,
     "\n  query ProfileLayout {\n    profileLayout {\n      tabs {\n        key name builtin\n        sections { key title icon items { id kind key label fields } }\n      }\n      library { id kind key label fields }\n    }\n    customTables(includeInactive: true) { id key name hrOnly pay standard isActive columns { key name type choices } }\n    customFields(includeInactive: true) { id key }\n  }\n": typeof types.ProfileLayoutDocument,
     "\n  mutation SaveProfileLayout($config: JSON!) {\n    saveProfileLayout(config: $config) { layout { tabs { key } } errors { field message } }\n  }\n": typeof types.SaveProfileLayoutDocument,
+    "\n  query CustomReportOptions {\n    customReportFields { key label category }\n    departments { id name isActive }\n    locations { id name isActive }\n    legalEntities { id name isActive }\n    jobTitles { id name isActive }\n    grades { id name isActive }\n  }\n": typeof types.CustomReportOptionsDocument,
+    "\n  query CustomReportPreview($fields: [String!], $filter: JSON, $showing: String!) {\n    runCustomReport(fields: $fields, filter: $filter, showing: $showing) { chart note rows columns { key label kind } summary { label value } }\n  }\n": typeof types.CustomReportPreviewDocument,
+    "\n  mutation SaveCustomReport($input: CustomReportInput!) {\n    saveCustomReport(input: $input) { report { id } errors { field message } }\n  }\n": typeof types.SaveCustomReportDocument,
     "\n  query EmployeeSnapshot($id: ID!) {\n    employee(id: $id) {\n      id fullName photoUrl employeeNumber workEmail phone workPhone workPhoneExt dateOfBirth\n      hireDate status employmentType\n      jobTitle { name } department { name } grade { name } legalEntity { name }\n      location { name city country }\n      manager { id fullName }\n      directReports { id }\n      employmentHistory { id effectiveDate changeType jobTitle { name } }\n      compensationHistory { id effectiveDate amount currency frequency }\n    }\n  }\n": typeof types.EmployeeSnapshotDocument,
-    "\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings }\n  }\n": typeof types.ReportCatalogDocument,
+    "\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings category favorite lastViewed }\n  }\n": typeof types.ReportCatalogDocument,
+    "\n  query CustomReports {\n    customReports { id name description fields filter showing shared ownerName mine favorite lastViewed }\n  }\n": typeof types.CustomReportsDocument,
+    "\n  mutation SetFavoriteReport($favorite: Boolean!, $key: String, $customId: ID) {\n    setFavoriteReport(favorite: $favorite, key: $key, customId: $customId)\n  }\n": typeof types.SetFavoriteReportDocument,
     "\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n    }\n    tenant { name slug primaryColor country currency logoUrl }\n  }\n": typeof types.MeDocument,
 };
 const documents: Documents = {
@@ -162,8 +175,6 @@ const documents: Documents = {
     "\n  mutation ConfirmMfaSetup($code: String!) {\n    confirmMfaSetup(code: $code) { codes errors { field message } }\n  }\n": types.ConfirmMfaSetupDocument,
     "\n  mutation DisableMfa($password: String!) {\n    disableMfa(password: $password) { ok errors { field message } }\n  }\n": types.DisableMfaDocument,
     "\n  mutation NewRecoveryCodes($code: String!) {\n    newRecoveryCodes(code: $code) { codes errors { field message } }\n  }\n": types.NewRecoveryCodesDocument,
-    "\n  query DocumentsAdmin($within: Int!) {\n    expiringDocuments(withinDays: $within) {\n      id title expiresOn\n      employee { id fullName }\n      category { id name }\n    }\n    documentCategories(includeInactive: true) { id name employeeCanView managerCanView requiresExpiry isActive }\n  }\n": types.DocumentsAdminDocument,
-    "\n  mutation SaveDocumentCategory($input: SaveDocumentCategoryInput!) {\n    saveDocumentCategory(input: $input) { category { id } errors { field message } }\n  }\n": types.SaveDocumentCategoryDocument,
     "\n  mutation ArchiveEmployee($id: ID!) {\n    archiveEmployee(id: $id) { employee { id } errors { field message } }\n  }\n": types.ArchiveEmployeeDocument,
     "\n  mutation SendEmployeePasswordReset($employeeId: ID!) {\n    sendEmployeePasswordReset(employeeId: $employeeId)\n  }\n": types.SendEmployeePasswordResetDocument,
     "\n  query EmployeeAccess($id: ID!) {\n    employee(id: $id) { id access { email roles isActive invitePending } }\n  }\n": types.EmployeeAccessDocument,
@@ -173,6 +184,13 @@ const documents: Documents = {
     "\n  mutation HireEmployee($input: HireEmployeeInput!) {\n    hireEmployee(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": types.HireEmployeeDocument,
     "\n  query PendingChanges {\n    pendingChangeRequests { id employeeId employeeName createdAt canDecide lines { field label current requested } }\n  }\n": types.PendingChangesDocument,
     "\n  mutation DecideChangeRequest($id: ID!, $approve: Boolean!, $note: String) {\n    decideChangeRequest(id: $id, approve: $approve, note: $note) { request { id status } errors { field message } }\n  }\n": types.DecideChangeRequestDocument,
+    "\n  query CompanyFolders {\n    companyFolders { id name fileCount }\n  }\n": types.CompanyFoldersDocument,
+    "\n  query CompanyFiles($folderId: ID, $search: String) {\n    companyFiles(folderId: $folderId, search: $search) { id title originalName contentType size shared folderId uploadedBy createdAt }\n  }\n": types.CompanyFilesDocument,
+    "\n  mutation SaveCompanyFolder($name: String!, $id: ID) {\n    saveCompanyFolder(name: $name, id: $id) { folder { id name } errors { field message } }\n  }\n": types.SaveCompanyFolderDocument,
+    "\n  mutation DeleteCompanyFolder($id: ID!) {\n    deleteCompanyFolder(id: $id)\n  }\n": types.DeleteCompanyFolderDocument,
+    "\n  mutation UpdateCompanyFile($input: UpdateCompanyFileInput!) {\n    updateCompanyFile(input: $input) { file { id } errors { field message } }\n  }\n": types.UpdateCompanyFileDocument,
+    "\n  mutation RemoveCompanyFiles($ids: [ID!]!) {\n    removeCompanyFiles(ids: $ids)\n  }\n": types.RemoveCompanyFilesDocument,
+    "\n  mutation CompanyFileDownloadUrl($id: ID!) {\n    companyFileDownloadUrl(id: $id)\n  }\n": types.CompanyFileDownloadUrlDocument,
     "\n  query HomeExpiring {\n    expiringDocuments(withinDays: 30) { id }\n  }\n": types.HomeExpiringDocument,
     "\n  query HomeMyPhoto($id: ID!) {\n    employee(id: $id) { id photoUrl }\n  }\n": types.HomeMyPhotoDocument,
     "\n  mutation SaveHomeLayout($widgets: JSON!) {\n    saveHomeLayout(widgets: $widgets) { key hidden }\n  }\n": types.SaveHomeLayoutDocument,
@@ -197,6 +215,8 @@ const documents: Documents = {
     "\n  mutation SaveGrade($input: SaveGradeInput!) {\n    saveGrade(input: $input) { grade { id } errors { field message } }\n  }\n": types.SaveGradeDocument,
     "\n  query RunReport($key: String!, $params: ReportParams) {\n    runReport(key: $key, params: $params) {\n      title chart note start end rows\n      columns { key label kind }\n      summary { label value }\n    }\n  }\n": types.RunReportDocument,
     "\n  query ReportFilterOptions {\n    legalEntities { id name isActive }\n    locations { id name isActive }\n    departments { id name isActive }\n  }\n": types.ReportFilterOptionsDocument,
+    "\n  query RunCustomReport($id: ID!) {\n    runCustomReport(id: $id) { title chart note rows columns { key label kind } summary { label value } }\n  }\n": types.RunCustomReportDocument,
+    "\n  mutation DeleteCustomReport($id: ID!) {\n    deleteCustomReport(id: $id)\n  }\n": types.DeleteCustomReportDocument,
     "\n  query BenefitPlansSetup {\n    benefitPlans(includeInactive: true) {\n      id name kind provider description employeeRate employerRate basis statutory isActive enrolledCount\n    }\n  }\n": types.BenefitPlansSetupDocument,
     "\n  mutation SaveBenefitPlan($input: SaveBenefitPlanInput!) {\n    saveBenefitPlan(input: $input) { plan { id } errors { field message } }\n  }\n": types.SaveBenefitPlanDocument,
     "\n  query TaskTemplates {\n    taskTemplates { id kind title description category assignee dueOffset isActive }\n  }\n": types.TaskTemplatesDocument,
@@ -220,7 +240,6 @@ const documents: Documents = {
     "\n  mutation SignUp($input: SignUpInput!) {\n    signUp(input: $input) { url errors { field message } }\n  }\n": types.SignUpDocument,
     "\n  mutation Logout {\n    logout\n  }\n": types.LogoutDocument,
     "\n  query WaitingApprovals {\n    leaveApprovals { id }\n  }\n": types.WaitingApprovalsDocument,
-    "\n  query ChangesWaiting {\n    pendingChangeRequests { id }\n  }\n": types.ChangesWaitingDocument,
     "\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n": types.NotificationListDocument,
     "\n  query UnreadNotificationCount {\n    unreadNotificationCount\n  }\n": types.UnreadNotificationCountDocument,
     "\n  mutation MarkNotificationsRead($ids: [ID!]) {\n    markNotificationsRead(ids: $ids)\n  }\n": types.MarkNotificationsReadDocument,
@@ -230,6 +249,8 @@ const documents: Documents = {
     "\n  mutation DocumentDownloadUrl($id: ID!) {\n    documentDownloadUrl(id: $id)\n  }\n": types.DocumentDownloadUrlDocument,
     "\n  mutation UpdateDocument($input: UpdateDocumentInput!) {\n    updateDocument(input: $input) { document { id } errors { field message } }\n  }\n": types.UpdateDocumentDocument,
     "\n  mutation RemoveDocument($id: ID!) {\n    removeDocument(id: $id)\n  }\n": types.RemoveDocumentDocument,
+    "\n  query DocumentsAdmin($within: Int!) {\n    expiringDocuments(withinDays: $within) {\n      id title expiresOn\n      employee { id fullName }\n      category { id name }\n    }\n    documentCategories(includeInactive: true) { id name employeeCanView managerCanView requiresExpiry isActive }\n  }\n": types.DocumentsAdminDocument,
+    "\n  mutation SaveDocumentCategory($input: SaveDocumentCategoryInput!) {\n    saveDocumentCategory(input: $input) { category { id } errors { field message } }\n  }\n": types.SaveDocumentCategoryDocument,
     "\n  mutation UpdateEmployee($input: UpdateEmployeeInput!) {\n    updateEmployee(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": types.UpdateEmployeeDocument,
     "\n  query JobOptions {\n    legalEntities { id name isActive }\n    departments { id name isActive legalEntity { id } }\n    locations { id name isActive legalEntity { id } }\n    jobTitles { id name isActive }\n    grades { id name isActive }\n    employees(filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }, first: 100) { nodes { id fullName } }\n  }\n": types.JobOptionsDocument,
     "\n  mutation ChangeEmployeeJob($input: ChangeJobInput!) {\n    changeEmployeeJob(input: $input) {\n      employee { id }\n      errors { field message }\n    }\n  }\n": types.ChangeEmployeeJobDocument,
@@ -295,8 +316,13 @@ const documents: Documents = {
     "\n  query EmployeeProfile($id: ID!) {\n    employee(id: $id) {\n      id\n      employeeNumber\n      fullName\n      firstName\n      middleName\n      lastName\n      preferredName\n      workEmail\n      personalEmail\n      phone\n      workPhone\n      workPhoneExt\n      dateOfBirth\n      gender\n      maritalStatus\n      personal { nationality linkedinUrl twitter facebook homePhone addressLine1 addressLine2 city state postalCode country }\n      photoUrl\n      status\n      hireDate\n      probationEndDate\n      terminationDate\n      terminationReason\n      employmentType\n      archivedAt\n      legalEntity { id name }\n      department { id name }\n      location { id name city country timezone }\n      jobTitle { id name description }\n      grade { id name }\n      manager { id fullName jobTitle { name } photoUrl }\n      directReports { id fullName jobTitle { name } }\n      emergencyContacts {\n        id name relationship phone workPhone workPhoneExt homePhone email isPrimary\n        addressLine1 addressLine2 city state postalCode country\n      }\n      privateDetails { bankName bankAccountName bankAccountNumber nationalId taxId pensionId masked }\n      customValues { value field { id key name fieldType choices helpText hrOnly } }\n      tableRows { id tableKey values createdAt }\n      compensation { amount currency frequency effectiveDate payType paySchedule overtime }\n      compensationHistory { id amount currency frequency effectiveDate reason payType paySchedule overtime comment }\n      bonusTarget { percent amount }\n      statusHistory { id effectiveDate status comment }\n      notes { id body authorName createdAt }\n      employmentHistory {\n        id effectiveDate changeType reason\n        jobTitle { name }\n        department { name }\n        location { name }\n        grade { name }\n        manager { fullName }\n        employmentType\n      }\n    }\n  }\n": types.EmployeeProfileDocument,
     "\n  query ProfileLayout {\n    profileLayout {\n      tabs {\n        key name builtin\n        sections { key title icon items { id kind key label fields } }\n      }\n      library { id kind key label fields }\n    }\n    customTables(includeInactive: true) { id key name hrOnly pay standard isActive columns { key name type choices } }\n    customFields(includeInactive: true) { id key }\n  }\n": types.ProfileLayoutDocument,
     "\n  mutation SaveProfileLayout($config: JSON!) {\n    saveProfileLayout(config: $config) { layout { tabs { key } } errors { field message } }\n  }\n": types.SaveProfileLayoutDocument,
+    "\n  query CustomReportOptions {\n    customReportFields { key label category }\n    departments { id name isActive }\n    locations { id name isActive }\n    legalEntities { id name isActive }\n    jobTitles { id name isActive }\n    grades { id name isActive }\n  }\n": types.CustomReportOptionsDocument,
+    "\n  query CustomReportPreview($fields: [String!], $filter: JSON, $showing: String!) {\n    runCustomReport(fields: $fields, filter: $filter, showing: $showing) { chart note rows columns { key label kind } summary { label value } }\n  }\n": types.CustomReportPreviewDocument,
+    "\n  mutation SaveCustomReport($input: CustomReportInput!) {\n    saveCustomReport(input: $input) { report { id } errors { field message } }\n  }\n": types.SaveCustomReportDocument,
     "\n  query EmployeeSnapshot($id: ID!) {\n    employee(id: $id) {\n      id fullName photoUrl employeeNumber workEmail phone workPhone workPhoneExt dateOfBirth\n      hireDate status employmentType\n      jobTitle { name } department { name } grade { name } legalEntity { name }\n      location { name city country }\n      manager { id fullName }\n      directReports { id }\n      employmentHistory { id effectiveDate changeType jobTitle { name } }\n      compensationHistory { id effectiveDate amount currency frequency }\n    }\n  }\n": types.EmployeeSnapshotDocument,
-    "\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings }\n  }\n": types.ReportCatalogDocument,
+    "\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings category favorite lastViewed }\n  }\n": types.ReportCatalogDocument,
+    "\n  query CustomReports {\n    customReports { id name description fields filter showing shared ownerName mine favorite lastViewed }\n  }\n": types.CustomReportsDocument,
+    "\n  mutation SetFavoriteReport($favorite: Boolean!, $key: String, $customId: ID) {\n    setFavoriteReport(favorite: $favorite, key: $key, customId: $customId)\n  }\n": types.SetFavoriteReportDocument,
     "\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n    }\n    tenant { name slug primaryColor country currency logoUrl }\n  }\n": types.MeDocument,
 };
 
@@ -337,14 +363,6 @@ export function graphql(source: "\n  mutation NewRecoveryCodes($code: String!) {
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query DocumentsAdmin($within: Int!) {\n    expiringDocuments(withinDays: $within) {\n      id title expiresOn\n      employee { id fullName }\n      category { id name }\n    }\n    documentCategories(includeInactive: true) { id name employeeCanView managerCanView requiresExpiry isActive }\n  }\n"): (typeof documents)["\n  query DocumentsAdmin($within: Int!) {\n    expiringDocuments(withinDays: $within) {\n      id title expiresOn\n      employee { id fullName }\n      category { id name }\n    }\n    documentCategories(includeInactive: true) { id name employeeCanView managerCanView requiresExpiry isActive }\n  }\n"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "\n  mutation SaveDocumentCategory($input: SaveDocumentCategoryInput!) {\n    saveDocumentCategory(input: $input) { category { id } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation SaveDocumentCategory($input: SaveDocumentCategoryInput!) {\n    saveDocumentCategory(input: $input) { category { id } errors { field message } }\n  }\n"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "\n  mutation ArchiveEmployee($id: ID!) {\n    archiveEmployee(id: $id) { employee { id } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation ArchiveEmployee($id: ID!) {\n    archiveEmployee(id: $id) { employee { id } errors { field message } }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -378,6 +396,34 @@ export function graphql(source: "\n  query PendingChanges {\n    pendingChangeRe
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation DecideChangeRequest($id: ID!, $approve: Boolean!, $note: String) {\n    decideChangeRequest(id: $id, approve: $approve, note: $note) { request { id status } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation DecideChangeRequest($id: ID!, $approve: Boolean!, $note: String) {\n    decideChangeRequest(id: $id, approve: $approve, note: $note) { request { id status } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query CompanyFolders {\n    companyFolders { id name fileCount }\n  }\n"): (typeof documents)["\n  query CompanyFolders {\n    companyFolders { id name fileCount }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query CompanyFiles($folderId: ID, $search: String) {\n    companyFiles(folderId: $folderId, search: $search) { id title originalName contentType size shared folderId uploadedBy createdAt }\n  }\n"): (typeof documents)["\n  query CompanyFiles($folderId: ID, $search: String) {\n    companyFiles(folderId: $folderId, search: $search) { id title originalName contentType size shared folderId uploadedBy createdAt }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SaveCompanyFolder($name: String!, $id: ID) {\n    saveCompanyFolder(name: $name, id: $id) { folder { id name } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation SaveCompanyFolder($name: String!, $id: ID) {\n    saveCompanyFolder(name: $name, id: $id) { folder { id name } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteCompanyFolder($id: ID!) {\n    deleteCompanyFolder(id: $id)\n  }\n"): (typeof documents)["\n  mutation DeleteCompanyFolder($id: ID!) {\n    deleteCompanyFolder(id: $id)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UpdateCompanyFile($input: UpdateCompanyFileInput!) {\n    updateCompanyFile(input: $input) { file { id } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation UpdateCompanyFile($input: UpdateCompanyFileInput!) {\n    updateCompanyFile(input: $input) { file { id } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RemoveCompanyFiles($ids: [ID!]!) {\n    removeCompanyFiles(ids: $ids)\n  }\n"): (typeof documents)["\n  mutation RemoveCompanyFiles($ids: [ID!]!) {\n    removeCompanyFiles(ids: $ids)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CompanyFileDownloadUrl($id: ID!) {\n    companyFileDownloadUrl(id: $id)\n  }\n"): (typeof documents)["\n  mutation CompanyFileDownloadUrl($id: ID!) {\n    companyFileDownloadUrl(id: $id)\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -477,6 +523,14 @@ export function graphql(source: "\n  query ReportFilterOptions {\n    legalEntit
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "\n  query RunCustomReport($id: ID!) {\n    runCustomReport(id: $id) { title chart note rows columns { key label kind } summary { label value } }\n  }\n"): (typeof documents)["\n  query RunCustomReport($id: ID!) {\n    runCustomReport(id: $id) { title chart note rows columns { key label kind } summary { label value } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteCustomReport($id: ID!) {\n    deleteCustomReport(id: $id)\n  }\n"): (typeof documents)["\n  mutation DeleteCustomReport($id: ID!) {\n    deleteCustomReport(id: $id)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "\n  query BenefitPlansSetup {\n    benefitPlans(includeInactive: true) {\n      id name kind provider description employeeRate employerRate basis statutory isActive enrolledCount\n    }\n  }\n"): (typeof documents)["\n  query BenefitPlansSetup {\n    benefitPlans(includeInactive: true) {\n      id name kind provider description employeeRate employerRate basis statutory isActive enrolledCount\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -569,10 +623,6 @@ export function graphql(source: "\n  query WaitingApprovals {\n    leaveApproval
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query ChangesWaiting {\n    pendingChangeRequests { id }\n  }\n"): (typeof documents)["\n  query ChangesWaiting {\n    pendingChangeRequests { id }\n  }\n"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
 export function graphql(source: "\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n"): (typeof documents)["\n  query NotificationList($first: Int!, $after: String) {\n    unreadNotificationCount\n    notifications(first: $first, after: $after) {\n      nodes { id kind title body link read createdAt }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -606,6 +656,14 @@ export function graphql(source: "\n  mutation UpdateDocument($input: UpdateDocum
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation RemoveDocument($id: ID!) {\n    removeDocument(id: $id)\n  }\n"): (typeof documents)["\n  mutation RemoveDocument($id: ID!) {\n    removeDocument(id: $id)\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query DocumentsAdmin($within: Int!) {\n    expiringDocuments(withinDays: $within) {\n      id title expiresOn\n      employee { id fullName }\n      category { id name }\n    }\n    documentCategories(includeInactive: true) { id name employeeCanView managerCanView requiresExpiry isActive }\n  }\n"): (typeof documents)["\n  query DocumentsAdmin($within: Int!) {\n    expiringDocuments(withinDays: $within) {\n      id title expiresOn\n      employee { id fullName }\n      category { id name }\n    }\n    documentCategories(includeInactive: true) { id name employeeCanView managerCanView requiresExpiry isActive }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SaveDocumentCategory($input: SaveDocumentCategoryInput!) {\n    saveDocumentCategory(input: $input) { category { id } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation SaveDocumentCategory($input: SaveDocumentCategoryInput!) {\n    saveDocumentCategory(input: $input) { category { id } errors { field message } }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -869,11 +927,31 @@ export function graphql(source: "\n  mutation SaveProfileLayout($config: JSON!) 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "\n  query CustomReportOptions {\n    customReportFields { key label category }\n    departments { id name isActive }\n    locations { id name isActive }\n    legalEntities { id name isActive }\n    jobTitles { id name isActive }\n    grades { id name isActive }\n  }\n"): (typeof documents)["\n  query CustomReportOptions {\n    customReportFields { key label category }\n    departments { id name isActive }\n    locations { id name isActive }\n    legalEntities { id name isActive }\n    jobTitles { id name isActive }\n    grades { id name isActive }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query CustomReportPreview($fields: [String!], $filter: JSON, $showing: String!) {\n    runCustomReport(fields: $fields, filter: $filter, showing: $showing) { chart note rows columns { key label kind } summary { label value } }\n  }\n"): (typeof documents)["\n  query CustomReportPreview($fields: [String!], $filter: JSON, $showing: String!) {\n    runCustomReport(fields: $fields, filter: $filter, showing: $showing) { chart note rows columns { key label kind } summary { label value } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SaveCustomReport($input: CustomReportInput!) {\n    saveCustomReport(input: $input) { report { id } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation SaveCustomReport($input: CustomReportInput!) {\n    saveCustomReport(input: $input) { report { id } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "\n  query EmployeeSnapshot($id: ID!) {\n    employee(id: $id) {\n      id fullName photoUrl employeeNumber workEmail phone workPhone workPhoneExt dateOfBirth\n      hireDate status employmentType\n      jobTitle { name } department { name } grade { name } legalEntity { name }\n      location { name city country }\n      manager { id fullName }\n      directReports { id }\n      employmentHistory { id effectiveDate changeType jobTitle { name } }\n      compensationHistory { id effectiveDate amount currency frequency }\n    }\n  }\n"): (typeof documents)["\n  query EmployeeSnapshot($id: ID!) {\n    employee(id: $id) {\n      id fullName photoUrl employeeNumber workEmail phone workPhone workPhoneExt dateOfBirth\n      hireDate status employmentType\n      jobTitle { name } department { name } grade { name } legalEntity { name }\n      location { name city country }\n      manager { id fullName }\n      directReports { id }\n      employmentHistory { id effectiveDate changeType jobTitle { name } }\n      compensationHistory { id effectiveDate amount currency frequency }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings }\n  }\n"): (typeof documents)["\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings }\n  }\n"];
+export function graphql(source: "\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings category favorite lastViewed }\n  }\n"): (typeof documents)["\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings category favorite lastViewed }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query CustomReports {\n    customReports { id name description fields filter showing shared ownerName mine favorite lastViewed }\n  }\n"): (typeof documents)["\n  query CustomReports {\n    customReports { id name description fields filter showing shared ownerName mine favorite lastViewed }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SetFavoriteReport($favorite: Boolean!, $key: String, $customId: ID) {\n    setFavoriteReport(favorite: $favorite, key: $key, customId: $customId)\n  }\n"): (typeof documents)["\n  mutation SetFavoriteReport($favorite: Boolean!, $key: String, $customId: ID) {\n    setFavoriteReport(favorite: $favorite, key: $key, customId: $customId)\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

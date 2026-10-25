@@ -247,7 +247,7 @@ export default function HomePage() {
         {notice && <Notice tone="success">{notice}</Notice>}
         {expiring && expiring.expiringDocuments.length > 0 && !editing && (
           <Notice tone="warning" title={`${expiring.expiringDocuments.length} ${expiring.expiringDocuments.length === 1 ? "document has" : "documents have"} expired or expire within 30 days`}>
-            <Link href="/documents" className="font-semibold underline-offset-2 hover:underline">See which ones</Link>
+            <Link href="/files?view=employee" className="font-semibold underline-offset-2 hover:underline">See which ones</Link>
           </Notice>
         )}
         {!employeeId && <Notice tone="info">Your account is not linked to an employee record, so there is no time off or team to show.</Notice>}

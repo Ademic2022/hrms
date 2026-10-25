@@ -247,6 +247,34 @@ input ColumnInput {
   choices: [String!]! = []
 }
 
+type CompanyFile {
+  id: ID!
+  title: String!
+  originalName: String!
+  contentType: String!
+  size: Int!
+  shared: Boolean!
+  folderId: ID
+  uploadedBy: String
+  createdAt: DateTime!
+}
+
+type CompanyFilePayload {
+  file: CompanyFile
+  errors: [FieldError!]!
+}
+
+type CompanyFolder {
+  id: ID!
+  name: String!
+  fileCount: Int!
+}
+
+type CompanyFolderPayload {
+  folder: CompanyFolder
+  errors: [FieldError!]!
+}
+
 type CompanyLink {
   id: ID!
   group: String!
@@ -345,6 +373,35 @@ enum CustomFieldType {
   DATE
   CHOICE
   YES_NO
+}
+
+type CustomReport {
+  id: ID!
+  name: String!
+  description: String!
+  fields: [String!]!
+  filter: JSON!
+  showing: String!
+  shared: Boolean!
+  ownerName: String!
+  mine: Boolean!
+  favorite: Boolean!
+  lastViewed: DateTime
+}
+
+input CustomReportInput {
+  id: ID = null
+  name: String!
+  description: String! = ""
+  fields: [String!]!
+  filter: JSON!
+  showing: String! = "active"
+  shared: Boolean! = false
+}
+
+type CustomReportPayload {
+  report: CustomReport
+  errors: [FieldError!]!
 }
 
 type CustomTable {
@@ -1391,6 +1448,26 @@ type Mutation {
   Change fields for many people at once. Each person succeeds or fails on their own.
   """
   powerEdit(input: PowerEditInput!): [PowerEditResult!]!
+
+  """
+  Star or unstar a standard report (by key) or a custom report (by customId).
+  """
+  setFavoriteReport(favorite: Boolean!, key: String = null, customId: ID = null): Boolean!
+  saveCustomReport(input: CustomReportInput!): CustomReportPayload!
+
+  """Delete one of your own custom reports."""
+  deleteCustomReport(id: ID!): Boolean!
+  saveCompanyFolder(name: String!, id: ID = null): CompanyFolderPayload!
+
+  """Delete an empty folder."""
+  deleteCompanyFolder(id: ID!): Boolean!
+  updateCompanyFile(input: UpdateCompanyFileInput!): CompanyFilePayload!
+
+  """Remove company files. They leave every list but stay in storage."""
+  removeCompanyFiles(ids: [ID!]!): Int!
+
+  """A ten-minute download link. Each one is recorded in the audit log."""
+  companyFileDownloadUrl(id: ID!): String!
 }
 
 input MyDetailsInput {
@@ -1731,9 +1808,24 @@ type Query {
   """Changes waiting for HR, within your scope."""
   pendingChangeRequests: [ChangeRequest!]!
 
-  """The reports you may run."""
+  """
+  The reports you may run, with your favourites and when you last opened each.
+  """
   reportCatalog: [ReportInfo!]!
   runReport(key: String!, params: ReportParams = null): ReportResult!
+
+  """
+  Your custom reports and those shared with the company. Needs employees.view.
+  """
+  customReports: [CustomReport!]!
+
+  """The fields you may put in a custom report."""
+  customReportFields: [ReportField!]!
+
+  """
+  Run a saved custom report (id), or an unsaved one from fields and filter.
+  """
+  runCustomReport(id: ID = null, fields: [String!] = null, filter: JSON = null, showing: String! = "active"): ReportResult!
   companySettings: CompanySettings!
 
   """
@@ -1787,6 +1879,12 @@ type Query {
 
   """Saved People list views, in order."""
   employeeViews: [EmployeeView!]!
+
+  """Folders, with how many files you can see in each."""
+  companyFolders: [CompanyFolder!]!
+
+  """Company files you can see, in one folder or all of them."""
+  companyFiles(folderId: ID = null, search: String = null): [CompanyFile!]!
 }
 
 type RecoveryCodesPayload {
@@ -1827,6 +1925,12 @@ type ReportEvent {
   date: Date
 }
 
+type ReportField {
+  key: String!
+  label: String!
+  category: String!
+}
+
 type ReportFigure {
   label: String!
   value: String!
@@ -1838,6 +1942,9 @@ type ReportInfo {
   description: String!
   usesRange: Boolean!
   groupings: [String!]!
+  category: String!
+  favorite: Boolean!
+  lastViewed: DateTime
 }
 
 input ReportParams {
@@ -2174,6 +2281,14 @@ type TimeOffUsedData {
 
   """People who took this leave in the period."""
   people: Int!
+}
+
+input UpdateCompanyFileInput {
+  id: ID!
+  title: String = null
+  shared: Boolean = null
+  folderId: ID = null
+  toTopLevel: Boolean! = false
 }
 
 input UpdateDocumentInput {

@@ -5,10 +5,11 @@ import { useState } from "react";
 import { useQuery } from "urql";
 
 import { IconDownload } from "@/components/icons";
-import { ButtonLink, Card, Empty, ErrorNote, Field, Input, Loading, PageHeader, Select, Stat, Table, TD, TH } from "@/components/ui";
+import { FavoriteStar } from "@/components/reports/Shell";
+import { ResultView } from "@/components/reports/ResultView";
+import { ButtonLink, Card, ErrorNote, Field, Input, Loading, PageHeader, Select } from "@/components/ui";
 import { graphql } from "@/gql";
 import { errorMessage } from "@/lib/api";
-import { formatDate } from "@/lib/format";
 import { today } from "@/lib/forms";
 import { ReportCatalogDocument } from "@/lib/reports";
 
@@ -34,20 +35,9 @@ const GROUP_LABELS: Record<string, string> = {
   department: "Department", location: "Location", legal_entity: "Legal entity", grade: "Grade", employment_type: "Employment type",
 };
 
-type Cell = string | number | null;
-
-function show(value: Cell, kind: string) {
-  if (value === null || value === "") return "—";
-  if (kind === "date") return formatDate(String(value));
-  if (kind === "percent") return `${value}%`;
-  if (kind === "money") return Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (kind === "number") return Number(value).toLocaleString();
-  return String(value);
-}
-
 export default function ReportPage() {
   const { key } = useParams<{ key: string }>();
-  const [{ data: catalog }] = useQuery({ query: ReportCatalogDocument });
+  const [{ data: catalog }, refetchCatalog] = useQuery({ query: ReportCatalogDocument });
   const [{ data: options }] = useQuery({ query: FilterOptionsDocument });
   const info = catalog?.reportCatalog.find((r) => r.key === key);
   const [start, setStart] = useState("");
@@ -69,17 +59,15 @@ export default function ReportPage() {
   }).filter(([, v]) => v));
   const exportHref = (fmt: string) => `/api/reports/${key}/${fmt}/?${query}`;
 
-  const chartIndex = result ? result.columns.findIndex((c) => c.key === result.chart) : -1;
-  const rows = (result?.rows ?? []) as Cell[][];
-  const max = chartIndex >= 0 ? Math.max(1, ...rows.map((r) => Number(r[chartIndex]) || 0)) : 1;
   const active = <T extends { isActive: boolean }>(xs: T[] | undefined) => (xs ?? []).filter((x) => x.isActive);
 
   return (
     <>
-      <PageHeader back={{ href: "/reports", label: "Reports" }} title={info?.title ?? "Report"}
+      <PageHeader back={{ href: "/reports?tab=standard", label: "Reports" }} title={info?.title ?? "Report"}
         subtitle={result ? result.title : info?.description}
         actions={result && (
           <>
+            {info && <FavoriteStar on={info.favorite} reportKey={info.key} label={info.title} onChanged={() => refetchCatalog({ requestPolicy: "network-only" })} />}
             <ButtonLink href={exportHref("pdf")} download variant="secondary" icon={<IconDownload size={16} />}>PDF</ButtonLink>
             <ButtonLink href={exportHref("xlsx")} download variant="secondary">Excel</ButtonLink>
             <ButtonLink href={exportHref("csv")} download variant="ghost">CSV</ButtonLink>
@@ -120,52 +108,7 @@ export default function ReportPage() {
         </div>
       </Card>
 
-      {error ? <ErrorNote error={errorMessage(error)} /> : !result ? <Loading /> : (
-        <div className={fetching ? "opacity-60 transition-opacity" : "transition-opacity"}>
-          {result.summary.length > 0 && (
-            <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {result.summary.slice(0, 4).map((f) => <Stat key={f.label} label={f.label} value={f.value} />)}
-            </div>
-          )}
-          {result.summary.length > 4 && (
-            <p className="-mt-2 mb-5 text-sm text-muted">{result.summary.slice(4).map((f) => `${f.label}: ${f.value}`).join(" · ")}</p>
-          )}
-          <Card flush>
-            {rows.length ? (
-              <Table>
-                <thead>
-                  <tr>{result.columns.map((c) => <TH key={c.key} align={["number", "percent", "money"].includes(c.kind) ? "right" : "left"}>{c.label}</TH>)}</tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, i) => (
-                    <tr key={i}>
-                      {row.map((value, j) => {
-                        const column = result.columns[j];
-                        const numeric = ["number", "percent", "money"].includes(column.kind);
-                        return (
-                          <TD key={j} align={numeric ? "right" : "left"} className={numeric ? "tabular-nums" : j === 0 ? "font-medium" : undefined}>
-                            {j === chartIndex ? (
-                              <span className="flex items-center justify-end gap-3">
-                                <span className="hidden h-2 w-32 overflow-hidden rounded-full bg-subtle sm:block">
-                                  <span className="block h-full rounded-full bg-brand" style={{ width: `${(Number(value) / max) * 100}%` }} />
-                                </span>
-                                {show(value, column.kind)}
-                              </span>
-                            ) : show(value, column.kind)}
-                          </TD>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            ) : (
-              <div className="p-5"><Empty title="Nothing to show">No one matches these filters in this period.</Empty></div>
-            )}
-          </Card>
-          {result.note && <p className="mt-3 text-xs text-muted">{result.note}</p>}
-        </div>
-      )}
+      {error ? <ErrorNote error={errorMessage(error)} /> : !result ? <Loading /> : <ResultView result={result} fetching={fetching} />}
     </>
   );
 }

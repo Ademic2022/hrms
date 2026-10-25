@@ -27,12 +27,6 @@ const WaitingDocument = graphql(`
   }
 `);
 
-const ChangesWaitingDocument = graphql(`
-  query ChangesWaiting {
-    pendingChangeRequests { id }
-  }
-`);
-
 interface NavItem {
   href: string;
   label: string;
@@ -73,12 +67,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const snapshot = useSnapshot();
   // Refreshed on each page change, so the badge drops as requests are decided.
   const [{ data: waiting }, recount] = useQuery({ query: WaitingDocument, pause: !me });
-  const reviewsChanges = Boolean(me?.permissions.includes(PERMS.employeesManage));
-  const [{ data: changes }, recountChanges] = useQuery({ query: ChangesWaitingDocument, pause: !reviewsChanges });
   useEffect(() => {
     if (me) recount({ requestPolicy: "network-only" });
-    if (reviewsChanges) recountChanges({ requestPolicy: "network-only" });
-  }, [pathname, me, recount, reviewsChanges, recountChanges]);
+  }, [pathname, me, recount]);
 
   useEffect(() => {
     if (!loading && !me) router.replace(`/login?next=${encodeURIComponent(pathname)}`);
@@ -111,14 +102,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       items: [
         // List, directory and org chart in one place, as BambooHR's People page; without employees.view it opens on the directory.
         { href: "/employees", label: "People", show: true, icon: IconUsers },
-        {
-          href: "/employees/requests", label: "Change requests", show: reviewsChanges, icon: IconCheck,
-          count: changes?.pendingChangeRequests.length ?? 0,
-        },
+        // Change requests have no menu item: they reach HR through the bell, email and the home feed.
         {
           href: "/reports", label: "Reports", icon: IconChart,
           show: can(PERMS.employeesView, PERMS.leaveManage, PERMS.compensationView),
         },
+        // Company files for everyone (HR also finds employee documents there).
+        { href: "/files", label: "Files", show: true, icon: IconFile },
       ],
     },
     {
@@ -137,7 +127,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       items: [
         { href: "/organization", label: "Organization", show: can(PERMS.orgManage), icon: IconSitemap },
         { href: "/leave/settings", label: "Leave setup", show: can(PERMS.leaveManage), icon: IconPencilGrid },
-        { href: "/documents", label: "Documents", show: can(PERMS.documentsManage), icon: IconFile },
         { href: "/settings/benefits", label: "Benefits", show: can(PERMS.employeesManage), icon: IconShield },
         { href: "/settings/checklists", label: "Onboarding", show: can(PERMS.employeesManage), icon: IconCheck },
         { href: "/settings/users", label: "Users and access", show: can(PERMS.usersManage), icon: IconShield },
