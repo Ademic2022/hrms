@@ -195,9 +195,9 @@ function EmployeeRecord() {
         case "leave_upcoming": return <LeaveUpcomingBlock key={key} {...common} />;
         case "leave_history": return <LeaveHistoryBlock key={key} {...common} isSelf={self} />;
         case "private_details":
-          return <PrivateDetailsCard key={key} employee={e} canEdit={manage} frame={sectionFrame(title, section.icon)} onChanged={() => saved("Bank and ID details saved.")} />;
+          return <PrivateDetailsCard key={key} employee={e} canEdit={manage && (e.fieldAccess as Record<string, string>).private === "edit"} frame={sectionFrame(title, section.icon)} onChanged={() => saved("Bank and ID details saved.")} />;
         case "emergency_contacts":
-          return <EmergencyContactsCard key={key} employee={e} canEdit={manage || self} frame={sectionFrame(title, section.icon)} onChanged={() => saved("Emergency contacts saved.")} />;
+          return <EmergencyContactsCard key={key} employee={e} canEdit={(manage || self) && (e.fieldAccess as Record<string, string>).emergency === "edit"} frame={sectionFrame(title, section.icon)} onChanged={() => saved("Emergency contacts saved.")} />;
         case "documents":
           return <DocumentsCard key={key} employeeId={e.id} employeeName={e.fullName} canManage={can(PERMS.documentsManage)}
             canUploadOwn={self && Boolean(tenant?.employeeUploads)} frame={sectionFrame(title, section.icon)} />;

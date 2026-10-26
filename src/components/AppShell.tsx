@@ -47,6 +47,23 @@ const ROLE_LABELS: Record<string, string> = {
   employee: "Employee",
 };
 
+const StopViewAsDocument = graphql(`
+  mutation StopViewAs { stopViewAs { permissions } }
+`);
+
+/** Shown while an admin sees the app as someone else (Settings → Users and access → View as). */
+function ViewAsBanner({ name, realName, onStop }: { name: string; realName: string; onStop: () => void }) {
+  const router = useRouter();
+  const [{ fetching }, stop] = useMutation(StopViewAsDocument);
+  return (
+    <div role="status" className="sticky top-0 z-30 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-amber-400 px-4 py-2 text-sm text-amber-950 shadow">
+      <span><strong>Viewing as {name}.</strong> This is what they see. Changes are off. You are {realName}.</span>
+      <button type="button" disabled={fetching} onClick={async () => { await stop({}); onStop(); router.push("/settings/users"); }}
+        className="rounded-full bg-amber-950 px-3 py-1 text-xs font-semibold text-amber-50 hover:bg-amber-900">Stop viewing</button>
+    </div>
+  );
+}
+
 function Crest({ tenant }: { tenant: Tenant | null }) {
   if (tenant?.logoUrl) {
     // eslint-disable-next-line @next/next/no-img-element
@@ -239,6 +256,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <NotificationBell align="right" />
         </header>
 
+        {me.viewingAs && <ViewAsBanner name={me.viewingAs.name} realName={me.viewingAs.realName} onStop={reset} />}
         <main id="main" className="mx-auto max-w-6xl space-y-5 px-4 py-6 sm:px-8 sm:py-8">
           {me.mfaSetupRequired && pathname !== "/account" && (
             <Notice tone="warning" title="Set up two-step sign-in to use your admin access">

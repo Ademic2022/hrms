@@ -4,7 +4,13 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "urql";
 
 import { IconPlus } from "@/components/icons";
-import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, Input, Loading, Notice, Select, Table, TD, TH } from "@/components/ui";
+import { faEye, faPen } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+
+import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, IconButton, Input, Loading, Notice, Select, Table, TD, TH } from "@/components/ui";
+import { AccessLevels } from "@/components/settings/AccessLevels";
+import { useViewAs } from "@/components/settings/viewAs";
+import { useSettingsTab } from "@/components/settings/areas";
 import { SettingsIntro } from "@/components/settings/Intro";
 import { graphql } from "@/gql";
 import type { UsersAdminQuery } from "@/gql/graphql";
@@ -71,7 +77,21 @@ const ROLE_HELP: Record<string, string> = {
   payroll_officer: "Sees everyone; sees and changes pay.",
   manager: "Sees and approves for their own team.",
   employee: "Their own record, leave and documents.",
+  former_employee: "For people who have left: their own record only.",
 };
+
+function exportCsv(members: Member[]) {
+  const cell = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replaceAll('"', '""')}"` : v);
+  const rows = [["Name", "Email", "Employee", "Access levels", "Status", "Last sign-in"],
+    ...members.map((m) => [m.fullName, m.email, m.employee?.name ?? "", m.roles.map((r) => r.name).join("; "),
+      !m.isActive ? "No access" : m.invitePending ? "Invited" : "Active", m.lastLogin ? m.lastLogin.slice(0, 16).replace("T", " ") : ""])];
+  const url = URL.createObjectURL(new Blob(["\ufeff" + rows.map((r) => r.map(cell).join(",")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "users.csv";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function CheckList({ label, hint, options, chosen, onChange }: {
   label: string; hint?: string; options: { id: string; name: string }[]; chosen: string[]; onChange: (ids: string[]) => void;
@@ -213,19 +233,23 @@ export default function UsersPage() {
   const [{ data, error }, reload] = useQuery({ query: UsersAdminDocument });
   const [editing, setEditing] = useState<{ member: Member | null } | null>(null);
   const [, resend] = useMutation(ResendDocument);
+  const viewAs = useViewAs();
+  const { me } = useSession();
   const [saved, setSaved] = useState<string>();
+  const [tab] = useSettingsTab(["users", "levels"] as const, "users");
 
+  if (tab === "levels") return <><SettingsIntro>What each access level may do and see. Give people levels from the Users list.</SettingsIntro><AccessLevels /></>;
   if (!can(PERMS.usersManage)) return <Notice tone="warning">You do not have permission to manage users.</Notice>;
   if (error) return <ErrorNote error={errorMessage(error)} />;
   if (!data) return <Loading />;
 
   return (
     <>
-      <SettingsIntro actions={<Button icon={<IconPlus size={16} />} onClick={() => { setSaved(undefined); setEditing({ member: null }); }}>Invite someone</Button>}>Who can sign in, what they can do, and whose records they reach.</SettingsIntro>
+      <SettingsIntro actions={<><Button variant="secondary" onClick={() => exportCsv(data.members)}>Export</Button><Button icon={<IconPlus size={16} />} onClick={() => { setSaved(undefined); setEditing({ member: null }); }}>Invite someone</Button></>}>Who can sign in, what they can do, and whose records they reach.</SettingsIntro>
       {saved && <Notice tone="success">{saved}</Notice>}
       <Card flush>
         <Table>
-          <thead><tr><TH>Person</TH><TH>Roles</TH><TH className="hidden md:table-cell">Reaches</TH><TH>Status</TH><TH align="right"><span className="sr-only">Actions</span></TH></tr></thead>
+          <thead><tr><TH>Person</TH><TH>Roles</TH><TH className="hidden 2xl:table-cell">Reaches</TH><TH>Status</TH><TH className="hidden lg:table-cell">Last sign-in</TH><TH align="right"><span className="sr-only">Actions</span></TH></tr></thead>
           <tbody>
             {data.members.map((m) => (
               <tr key={m.id} className={m.isActive ? undefined : "text-muted"}>
@@ -234,11 +258,11 @@ export default function UsersPage() {
                   <span className="block text-xs text-muted">{m.email}{m.employee ? ` · ${m.employee.name}` : ""}</span>
                 </TD>
                 <TD><span className="flex flex-wrap gap-1">{m.roles.map((r) => <Badge key={r.code}>{r.name}</Badge>)}</span></TD>
-                <TD className="hidden text-muted md:table-cell">{scopeSummary(m)}</TD>
+                <TD className="hidden text-muted 2xl:table-cell">{scopeSummary(m)}</TD>
                 <TD className="whitespace-nowrap">
                   {!m.isActive ? <Badge>No access</Badge> : m.invitePending ? <Badge tone="warn" dot>Invited</Badge> : <Badge tone="good" dot>Active</Badge>}
-                  {m.lastLogin && <span className="block text-xs text-muted">Last in {formatDate(m.lastLogin)}</span>}
                 </TD>
+                <TD className="hidden whitespace-nowrap text-muted lg:table-cell">{m.lastLogin ? formatDate(m.lastLogin) : "Never"}</TD>
                 <TD align="right" className="whitespace-nowrap">
                   {m.isActive && m.invitePending && (
                     <Button size="sm" variant="ghost" onClick={async () => {
@@ -246,7 +270,10 @@ export default function UsersPage() {
                       setSaved(result.error ? errorMessage(result.error) : `Invitation sent again to ${m.email}.`);
                     }}>Resend</Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => { setSaved(undefined); setEditing({ member: m }); }}>Edit</Button>
+                  {m.isActive && !m.invitePending && m.email !== me?.user.email && (
+                    <IconButton label={`View as ${m.fullName || m.email}`} onClick={async () => { const problem = await viewAs(m.id); if (problem) setSaved(problem); }}><FontAwesomeIcon icon={faEye} /></IconButton>
+                  )}
+                  <IconButton label={`Edit ${m.fullName || m.email}`} onClick={() => { setSaved(undefined); setEditing({ member: m }); }}><FontAwesomeIcon icon={faPen} /></IconButton>
                 </TD>
               </tr>
             ))}

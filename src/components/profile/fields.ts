@@ -97,6 +97,13 @@ export function shownValue(e: Profile, key: FieldKey): string | null {
   return raw;
 }
 
+/** The field-access group each field belongs to (apps/accounts/access.py FIELD_GROUP). */
+export const FIELD_GROUP: Partial<Record<FieldKey, string>> = {
+  date_of_birth: "personal", gender: "personal", pronouns: "personal", marital_status: "personal", nationality: "personal",
+  personal_email: "contact", phone: "contact", home_phone: "contact", linkedin_url: "contact", twitter: "contact", facebook: "contact",
+  address_line1: "address", address_line2: "address", city: "address", state: "address", postal_code: "address", country: "address",
+};
+
 /** Fields whose values only HR and the person see; when hidden, the API returns them empty. */
 export const PERSONAL_KEYS: FieldKey[] = [
   "date_of_birth", "gender", "pronouns", "marital_status", "nationality", "personal_email", "phone", "home_phone", "linkedin_url",

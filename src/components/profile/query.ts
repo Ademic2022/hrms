@@ -6,6 +6,7 @@ export const EmployeeProfileDocument = graphql(`
     employee(id: $id) {
       id
       employeeNumber
+      fieldAccess
       fullName
       firstName
       middleName

@@ -23,7 +23,10 @@ export const AREAS: SettingsArea[] = [
       { key: "branding", label: "Logo and colour" }, { key: "security", label: "Login and security" },
     ],
   },
-  { href: "/settings/users", label: "Users and access", icon: faUserLock, permission: PERMS.usersManage },
+  {
+    href: "/settings/users", label: "Users and access", icon: faUserLock, permission: PERMS.usersManage,
+    tabs: [{ key: "users", label: "Users" }, { key: "levels", label: "Access levels" }],
+  },
   {
     href: "/settings/organization", label: "Job organization", icon: faSitemap, permission: PERMS.orgManage,
     tabs: [

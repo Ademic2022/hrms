@@ -667,6 +667,11 @@ type Employee {
   """
   privateDetails: PrivateDetails
 
+  """
+  What you may do with each group of this employee's fields: none, view or edit.
+  """
+  fieldAccess: JSON!
+
   """Custom field values you may see, in field order, including empty ones."""
   customValues: [CustomValue!]!
 }
@@ -812,6 +817,11 @@ type EnrollmentPayload {
 type FieldError {
   field: String
   message: String!
+}
+
+type FieldGroupInfo {
+  key: String!
+  description: String!
 }
 
 type FilterDimension {
@@ -1260,6 +1270,9 @@ type Me {
   """
   mfaSetupRequired: Boolean!
   recoveryCodesLeft: Int!
+
+  """Set while you view the app as another member."""
+  viewingAs: ViewAs
 }
 
 type Member {
@@ -1315,6 +1328,13 @@ type MonthValue {
 }
 
 type Mutation {
+  """
+  See the app as another member does, read-only, for up to an hour. Needs users.manage.
+  """
+  startViewAs(memberId: ID!): Me
+
+  """Go back to your own view."""
+  stopViewAs: Me
   login(input: LoginInput!): LoginPayload!
 
   """
@@ -1369,6 +1389,19 @@ type Mutation {
 
   """Set custom field values by key. Null or empty clears a value."""
   setEmployeeCustomValues(employeeId: ID!, values: JSON!): CustomValuesPayload!
+
+  """
+  Create a role, or change one. The owner role cannot be changed; other built-in roles keep their name and permissions.
+  """
+  saveRole(input: SaveRoleInput!): RolePayload!
+
+  """
+  Copy a role, with its permissions, reach and field access, under a new name.
+  """
+  duplicateRole(id: ID!, name: String!): RolePayload!
+
+  """Delete a role nobody holds. Built-in roles cannot be deleted."""
+  deleteRole(id: ID!): Boolean!
   inviteMember(input: InviteMemberInput!): MemberPayload!
   updateMember(input: UpdateMemberInput!): MemberPayload!
   resendInvite(id: ID!): Boolean!
@@ -1812,6 +1845,9 @@ type Query {
   customFields(includeInactive: Boolean! = false): [CustomField!]!
   members: [Member!]!
   roles: [Role!]!
+
+  """The groups of employee fields a role's field access covers."""
+  fieldGroups: [FieldGroupInfo!]!
   permissionCatalog: [PermissionInfo!]!
 
   """Whether a set-password link is still good, and whose it is."""
@@ -2000,11 +2036,22 @@ type Role {
   permissions: [String!]!
   scope: RoleScope!
   isSystem: Boolean!
+  description: String!
+
+  """{"others": {group: level}, "self": {...}}, filled in."""
+  fieldAccess: JSON!
+  memberCount: Int!
+}
+
+type RolePayload {
+  role: Role
+  errors: [FieldError!]!
 }
 
 enum RoleScope {
   ALL
   TEAM
+  DIRECT
 }
 
 input SaveBenefitPlanInput {
@@ -2148,6 +2195,15 @@ input SavePublicHolidayInput {
   name: String
   date: Date
   locationId: ID
+}
+
+input SaveRoleInput {
+  id: ID = null
+  name: String!
+  description: String! = ""
+  permissions: [String!]! = []
+  scope: RoleScope! = ALL
+  fieldAccess: JSON! = {  }
 }
 
 input SaveTaskTemplateInput {
@@ -2362,6 +2418,12 @@ type User {
   firstName: String!
   lastName: String!
   fullName: String!
+}
+
+type ViewAs {
+  name: String!
+  realName: String!
+  startedAt: Int!
 }
 
 """Narrow a home widget to some people. Empty lists mean no limit."""

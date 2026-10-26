@@ -10,7 +10,7 @@ import { graphql } from "@/gql";
 import { errorMessage } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
-import { FIELDS, PERSONAL_KEYS, genderOptions, rawValue, shownValue, type FieldKey } from "./fields";
+import { FIELD_GROUP, FIELDS, PERSONAL_KEYS, genderOptions, rawValue, shownValue, type FieldKey } from "./fields";
 import type { LayoutItem, Profile } from "./query";
 import { ProfileSection } from "./Section";
 
@@ -83,7 +83,11 @@ export function FieldsSection({ title, icon, rows, employee: e, canManage, isSel
   const [, updateMine] = useMutation(UpdateMyFieldsDocument);
   const [, setCustom] = useMutation(SetCustomFieldsDocument);
 
-  const editable = (key: FieldKey) => FIELDS[key].input !== "readonly" && (canManage || (isSelf && Boolean(FIELDS[key].self)));
+  // Field access (Settings → Access levels) can narrow what HR, managers and the person may change.
+  const access = (e.fieldAccess ?? {}) as Record<string, string>;
+  const allowed = (key: FieldKey) => !FIELD_GROUP[key] || access[FIELD_GROUP[key]] === "edit";
+  const editable = (key: FieldKey) => FIELDS[key].input !== "readonly" && allowed(key)
+    && (canManage || (isSelf && Boolean(FIELDS[key].self)));
   const canEdit = rows.some((r) => (r.kind === "fields" ? r.keys.some(editable) : canManage));
 
   function start() {
