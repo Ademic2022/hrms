@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useClient, useQuery } from "urql";
 
@@ -9,6 +10,7 @@ import {
 } from "@/components/ui";
 import { useSettingsTab } from "@/components/settings/areas";
 import { SettingsIntro } from "@/components/settings/Intro";
+import { TeamsAdmin } from "@/components/settings/TeamsAdmin";
 import { graphql } from "@/gql";
 import type { OrganizationQuery } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
@@ -22,7 +24,7 @@ const OrganizationDocument = graphql(`
     locations { id name address city country timezone isActive legalEntity { id name } }
     departments { id name code isActive legalEntity { id name } parent { id name } head { id fullName } }
     jobTitles { id name description isActive }
-    grades { id name rank isActive }
+    grades { id name rank isActive payMin payMid payMax }
     employees(filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }, first: 100) { nodes { id fullName } }
   }
 `);
@@ -60,7 +62,7 @@ type Option = { id: string; name: string };
 interface FieldDef {
   name: string;
   label: string;
-  type?: "text" | "number" | "select" | "textarea";
+  type?: "text" | "number" | "select" | "textarea" | "money";
   required?: boolean;
   hint?: string;
   placeholder?: string;
@@ -134,6 +136,9 @@ const KINDS: Record<Kind, { label: string; singular: string; intro: string; fiel
     fields: [
       { name: "name", label: "Name", required: true },
       { name: "rank", label: "Rank", type: "number", required: true, hint: "0 is the most junior." },
+      { name: "payMin", label: "Band minimum", type: "money", hint: "Monthly base pay in the company currency." },
+      { name: "payMid", label: "Band midpoint", type: "money", hint: "Leave empty to use halfway." },
+      { name: "payMax", label: "Band maximum", type: "money" },
     ],
   },
 };
@@ -185,7 +190,8 @@ function UnitDialog({ kind, data, editing, onClose, onSaved }: {
     const input: Record<string, unknown> = { id: editing.id ?? null, isActive: values.isActive };
     for (const f of config.fields) {
       const raw = String(values[f.name]).trim();
-      input[f.name] = f.type === "select" ? raw || null : f.type === "number" ? Number(raw) : f.upper ? raw.toUpperCase() : raw;
+      input[f.name] = f.type === "select" ? raw || null : f.type === "number" ? Number(raw)
+        : f.type === "money" ? (raw.replace(/[,\s]/g, "") || null) : f.upper ? raw.toUpperCase() : raw;
     }
     setBusy(true);
     const result = await save(client, kind, input);
@@ -268,7 +274,7 @@ function Active({ on }: { on: boolean }) {
 
 const dash = <span className="text-muted">—</span>;
 
-export default function OrganizationPage() {
+function OrganizationPage() {
   const { can, tenant } = useSession();
   const [{ data, error }, reload] = useQuery({ query: OrganizationDocument });
   const [tab] = useSettingsTab<Kind>(["legalEntities", "locations", "departments", "jobTitles", "grades"], "legalEntities");
@@ -305,7 +311,12 @@ export default function OrganizationPage() {
       },
     },
     jobTitles: { head: ["Name"], cells: (r) => [r.name as string] },
-    grades: { head: ["Rank", "Name"], cells: (r) => [<span key="rank" className="tabular-nums">{r.rank as number}</span>, r.name as string] },
+    grades: {
+      head: ["Rank", "Name", "Pay band (monthly)"],
+      cells: (r) => [<span key="rank" className="tabular-nums">{r.rank as number}</span>, r.name as string,
+        <span key="band" className="tabular-nums text-muted">{r.payMin || r.payMax
+          ? `${r.payMin ? Number(r.payMin).toLocaleString() : "…"} – ${r.payMax ? Number(r.payMax).toLocaleString() : "…"}` : "—"}</span>],
+    },
   };
 
   return (
@@ -349,4 +360,9 @@ export default function OrganizationPage() {
       )}
     </>
   );
+}
+
+export default function OrganizationSettingsPage() {
+  const params = useSearchParams();
+  return params.get("tab") === "teams" ? <TeamsAdmin /> : <OrganizationPage />;
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery } from "urql";
 
 import { IconCheck, IconPlus } from "@/components/icons";
+import { PendingChanges } from "@/components/approvals/PendingChanges";
 import { ApprovalChain, TypeDot } from "@/components/leave/Leave";
 import { Button, Card, Checkbox, Dialog, Empty, ErrorNote, Field, Input, Loading, Notice, PageHeader, Select, Textarea } from "@/components/ui";
 import { graphql } from "@/gql";
@@ -190,9 +191,10 @@ export default function LeaveApprovalsPage() {
 
   return (
     <>
-      <PageHeader title="Leave approvals" subtitle={`${requests.length} waiting${everyone ? " across the company" : " for you"}`}
+      <PageHeader title="Approvals" subtitle={`${requests.length} leave ${requests.length === 1 ? "request" : "requests"} waiting${everyone ? " across the company" : " for you"}`}
         actions={hr ? <Checkbox label="Show every pending request" checked={everyone} onChange={setEveryone} /> : null} />
       {saved && <Notice tone="success">{saved}</Notice>}
+      <PendingChanges />
       {received.map((d) => (
         <Notice key={d.id} tone="info">
           You are covering {d.delegator.fullName}&apos;s approvals until {formatDate(d.endDate)}.

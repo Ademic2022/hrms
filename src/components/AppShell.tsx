@@ -12,6 +12,7 @@ import { useSession, type Tenant } from "@/lib/session";
 
 import { IconCalendarCheck, IconChart, IconCheck, IconClose, IconFile, IconHome, IconLogout, IconMenu, IconSettings, IconUser, IconUsers } from "./icons";
 import { NotificationBell } from "./Notifications";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { AREAS } from "@/components/settings/areas";
 import { useSnapshot } from "./snapshot/Snapshot";
 import { IconButton, Loading, Notice, cx } from "./ui";
@@ -25,6 +26,7 @@ const LogoutDocument = graphql(`
 const WaitingDocument = graphql(`
   query WaitingApprovals {
     leaveApprovals { id }
+    pendingChanges { id canDecide }
   }
 `);
 
@@ -108,7 +110,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   const profileHref = me.employee ? `/employees/${me.employee.id}` : null;
-  const waitingCount = waiting?.leaveApprovals.length ?? 0;
+  const waitingCount = (waiting?.leaveApprovals.length ?? 0) + (waiting?.pendingChanges.filter((c) => c.canDecide).length ?? 0);
   const settingsHref = AREAS.find((a) => can(a.permission))?.href;
   const sections: { section: string; items: NavItem[] }[] = [
     {
@@ -174,6 +176,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
         <div className="hidden lg:block"><NotificationBell /></div>
       </div>
+      <div className="px-3 pb-1 pt-1"><GlobalSearch /></div>
       <nav className="flex-1 overflow-y-auto px-3 pb-4" aria-label="Main">
         {sections.map((s) => (
           <div key={s.section || "main"} className="mt-5 first:mt-1">
@@ -253,6 +256,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Crest tenant={tenant} />
             <span className="truncate text-sm font-semibold text-ink">{tenant?.name}</span>
           </div>
+          <GlobalSearch compact />
           <NotificationBell align="right" />
         </header>
 

@@ -65,6 +65,17 @@ function Entry({ p, byId, onChart }: { p: OrgPerson; byId: Map<string, OrgPerson
           <li className="flex items-center gap-2.5"><FontAwesomeIcon icon={faEnvelope} fixedWidth className="text-xs text-muted" />
             <a href={`mailto:${p.workEmail}`} className="truncate text-brand-ink hover:underline">{p.workEmail}</a></li>
         )}
+        {p.mobile && (
+          <li className="flex items-center gap-2.5"><FontAwesomeIcon icon={faMobileScreen} fixedWidth className="text-xs text-muted" />
+            <a href={`tel:${p.mobile}`} className="hover:underline">{p.mobile}</a><span className="text-muted">mobile</span></li>
+        )}
+        {(p.linkedinUrl || p.twitter || p.facebook) && (
+          <li className="flex flex-wrap items-center gap-x-3 text-muted">
+            {p.linkedinUrl && <a href={p.linkedinUrl} target="_blank" rel="noreferrer" className="hover:text-ink hover:underline">LinkedIn</a>}
+            {p.twitter && <span>X: {p.twitter}</span>}
+            {p.facebook && <span>Facebook</span>}
+          </li>
+        )}
         {p.workPhone && (
           <li className="flex items-center gap-2.5"><FontAwesomeIcon icon={faMobileScreen} fixedWidth className="text-xs text-muted" />
             <a href={`tel:${p.workPhone}`} className="hover:underline">{p.workPhone}</a>{p.workPhoneExt && <span className="text-muted">ext. {p.workPhoneExt}</span>}</li>

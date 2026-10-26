@@ -10,6 +10,7 @@ import { Button, Dialog, ErrorNote, Field, Input, Select } from "@/components/ui
 import { graphql } from "@/gql";
 import type { EmployeeProfileQuery, EmployeeStatus, EmploymentType, JobChangeType, OvertimeStatus, PayFrequency, PaySchedule, PayType } from "@/gql/graphql";
 import { genderOptions } from "@/components/profile/fields";
+import { ListInput } from "@/components/settings/OptionLists";
 import { reportErrors, today } from "@/lib/forms";
 import { useSession } from "@/lib/session";
 
@@ -18,8 +19,8 @@ export type ProfileEmployee = EmployeeProfileQuery["employee"];
 interface DialogProps {
   employee: ProfileEmployee;
   onClose: () => void;
-  /** Called after a successful save, so the page can reload the record. */
-  onSaved: () => void;
+  /** Called after a successful save, so the page can reload the record; with a message when it was not applied straight away. */
+  onSaved: (message?: string) => void;
 }
 
 const optionalDate = z.union([z.literal(""), z.iso.date("Enter a valid date.")]);
@@ -134,10 +135,23 @@ export const EMPLOYMENT_TYPES: { value: EmploymentType; label: string }[] = [
   { value: "INTERN", label: "Intern" },
 ];
 
+const RequestJobDocument = graphql(`
+  mutation RequestJobChange($input: ChangeJobInput!) {
+    requestJobChange(input: $input) { waitingForApproval errors { field message } }
+  }
+`);
+
+const RequestPayDocument = graphql(`
+  mutation RequestPayChange($input: ChangeCompensationInput!) {
+    requestPayChange(input: $input) { waitingForApproval errors { field message } }
+  }
+`);
+
 const ChangeJobDocument = graphql(`
   mutation ChangeEmployeeJob($input: ChangeJobInput!) {
     changeEmployeeJob(input: $input) {
       employee { id }
+      waitingForApproval
       errors { field message }
     }
   }
@@ -166,9 +180,13 @@ type JobValues = z.infer<typeof jobSchema>;
 const JOB_FIELDS = Object.keys(jobSchema.shape) as (keyof JobValues)[];
 const JOB_REFS = ["legalEntityId", "departmentId", "locationId", "jobTitleId", "gradeId", "managerId", "employmentType"] as const;
 
-export function ChangeJobDialog({ employee: e, onClose, onSaved, changeType = "PROMOTION" }: DialogProps & { changeType?: "PROMOTION" | "TRANSFER" | "CHANGE" }) {
+/** request: a manager asking for the change, which always waits for approval, instead of HR making it. */
+export function ChangeJobDialog({ employee: e, onClose, onSaved, changeType = "PROMOTION", request = false }: DialogProps & {
+  changeType?: "PROMOTION" | "TRANSFER" | "CHANGE"; request?: boolean;
+}) {
   const [{ data }] = useQuery({ query: JobOptionsDocument });
-  const [, changeJob] = useMutation(ChangeJobDocument);
+  const [, makeJob] = useMutation(ChangeJobDocument);
+  const [, askJob] = useMutation(RequestJobDocument);
   const [formError, setFormError] = useState<string>();
   const current: Pick<JobValues, (typeof JOB_REFS)[number]> = {
     legalEntityId: e.legalEntity.id, departmentId: e.department?.id ?? "", locationId: e.location?.id ?? "",
@@ -191,12 +209,13 @@ export function ChangeJobDialog({ employee: e, onClose, onSaved, changeType = "P
       setFormError("Nothing has changed. Pick a new job title, department, manager or other detail.");
       return;
     }
-    const result = await changeJob({
-      input: { id: e.id, effectiveDate: v.effectiveDate, changeType: v.changeType, reason: v.reason || null, ...changed },
-    });
-    const failed = reportErrors(result, result.data?.changeEmployeeJob.errors, JOB_FIELDS,
+    const input = { id: e.id, effectiveDate: v.effectiveDate, changeType: v.changeType, reason: v.reason || null, ...changed };
+    const result = request ? await askJob({ input }) : await makeJob({ input });
+    const payload = result.data && ("requestJobChange" in result.data ? result.data.requestJobChange : result.data.changeEmployeeJob);
+    const waiting = payload?.waitingForApproval;
+    const failed = reportErrors(result, payload?.errors, JOB_FIELDS,
       (f, message) => setError(f, { message }), setFormError);
-    if (!failed) onSaved();
+    if (!failed) onSaved(waiting ? "Sent for approval. It takes effect once every approver agrees." : undefined);
   }
 
   const choice = (name: keyof JobValues, label: string, options: { id: string; name: string }[], empty = "None") => (
@@ -244,7 +263,7 @@ export function ChangeJobDialog({ employee: e, onClose, onSaved, changeType = "P
           </Field>
         </div>
         <Field label="Reason" optional hint="Shown in the employment history.">
-          <Input {...register("reason")} placeholder="Annual review" />
+          <ListInput id="job-reason" listKey="JOB_CHANGE_REASON" {...register("reason")} placeholder="Promotion" />
         </Field>
       </form>
     </Dialog>
@@ -257,6 +276,7 @@ const ChangePayDocument = graphql(`
   mutation ChangeEmployeeCompensation($input: ChangeCompensationInput!) {
     changeEmployeeCompensation(input: $input) {
       employee { id }
+      waitingForApproval
       errors { field message }
     }
   }
@@ -293,8 +313,9 @@ const paySchema = z.object({
 
 type PayValues = z.infer<typeof paySchema>;
 
-export function ChangePayDialog({ employee: e, currency, onClose, onSaved }: DialogProps & { currency: string }) {
-  const [, changePay] = useMutation(ChangePayDocument);
+export function ChangePayDialog({ employee: e, currency, onClose, onSaved, request = false }: DialogProps & { currency: string; request?: boolean }) {
+  const [, makePay] = useMutation(ChangePayDocument);
+  const [, askPay] = useMutation(RequestPayDocument);
   const [formError, setFormError] = useState<string>();
   const { register, handleSubmit, setError, formState: { errors, isSubmitting } } = useForm<PayValues>({
     resolver: zodResolver(paySchema),
@@ -307,14 +328,15 @@ export function ChangePayDialog({ employee: e, currency, onClose, onSaved }: Dia
 
   async function onSubmit(v: PayValues) {
     setFormError(undefined);
-    const result = await changePay({
-      input: { id: e.id, amount: v.amount, frequency: v.frequency, effectiveDate: v.effectiveDate, reason: v.reason || null,
-        currency: e.compensation?.currency ?? currency, payType: v.payType, paySchedule: v.paySchedule || null,
-        overtime: v.overtime || null, comment: v.comment || null },
-    });
-    const failed = reportErrors(result, result.data?.changeEmployeeCompensation.errors, Object.keys(paySchema.shape) as (keyof PayValues)[],
+    const input = { id: e.id, amount: v.amount, frequency: v.frequency, effectiveDate: v.effectiveDate, reason: v.reason || null,
+      currency: e.compensation?.currency ?? currency, payType: v.payType, paySchedule: v.paySchedule || null,
+      overtime: v.overtime || null, comment: v.comment || null };
+    const result = request ? await askPay({ input }) : await makePay({ input });
+    const payload = result.data && ("requestPayChange" in result.data ? result.data.requestPayChange : result.data.changeEmployeeCompensation);
+    const waiting = payload?.waitingForApproval;
+    const failed = reportErrors(result, payload?.errors, Object.keys(paySchema.shape) as (keyof PayValues)[],
       (f, message) => setError(f, { message }), setFormError);
-    if (!failed) onSaved();
+    if (!failed) onSaved(waiting ? "Sent for approval. It takes effect once every approver agrees." : undefined);
   }
 
   return (
@@ -358,7 +380,7 @@ export function ChangePayDialog({ employee: e, currency, onClose, onSaved }: Dia
           <Input type="date" aria-invalid={!!errors.effectiveDate} {...register("effectiveDate")} />
         </Field>
         <Field label="Reason" optional>
-          <Input {...register("reason")} placeholder="Annual increase" />
+          <ListInput id="pay-reason" listKey="PAY_CHANGE_REASON" {...register("reason")} placeholder="Annual increase" />
         </Field>
         <Field label="Comment" optional>
           <Input {...register("comment")} />
@@ -454,7 +476,9 @@ export function ChangeStatusDialog({ employee: e, onClose, onSaved }: DialogProp
         )}
         <Field label={leaving ? "Reason for leaving" : "Note"} optional={!leaving} error={errors.reason?.message}
           hint={leaving ? "Their direct reports move to their manager. This cannot be undone." : undefined}>
-          <Input aria-invalid={!!errors.reason} {...register("reason")} placeholder={leaving ? "Resigned" : undefined} />
+          {leaving
+            ? <ListInput id="leave-reason" listKey="TERMINATION_REASON" aria-invalid={!!errors.reason} {...register("reason")} placeholder="Resigned" />
+            : <Input aria-invalid={!!errors.reason} {...register("reason")} />}
         </Field>
       </form>
     </Dialog>

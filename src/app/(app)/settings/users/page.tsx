@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, IconButton, Input, Loading, Notice, Select, Table, TD, TH } from "@/components/ui";
 import { AccessLevels } from "@/components/settings/AccessLevels";
+import { ApiKeys } from "@/components/settings/Integrations";
 import { useViewAs } from "@/components/settings/viewAs";
 import { useSettingsTab } from "@/components/settings/areas";
 import { SettingsIntro } from "@/components/settings/Intro";
@@ -236,8 +237,9 @@ export default function UsersPage() {
   const viewAs = useViewAs();
   const { me } = useSession();
   const [saved, setSaved] = useState<string>();
-  const [tab] = useSettingsTab(["users", "levels"] as const, "users");
+  const [tab] = useSettingsTab(["users", "levels", "api"] as const, "users");
 
+  if (tab === "api") return <><SettingsIntro>Keys that let other systems, such as payroll or accounting, use this company&apos;s data through the API.</SettingsIntro><ApiKeys /></>;
   if (tab === "levels") return <><SettingsIntro>What each access level may do and see. Give people levels from the Users list.</SettingsIntro><AccessLevels /></>;
   if (!can(PERMS.usersManage)) return <Notice tone="warning">You do not have permission to manage users.</Notice>;
   if (error) return <ErrorNote error={errorMessage(error)} />;

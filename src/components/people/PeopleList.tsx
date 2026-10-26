@@ -45,6 +45,7 @@ const OptionsDocument = graphql(`
     legalEntities { id name isActive }
     jobTitles { id name isActive }
     grades { id name isActive }
+    teams { id name isActive }
     employeeViews { id name filter columns }
   }
 `);
@@ -149,7 +150,7 @@ function Group({ title, options, values, onChange }: {
 
 export function FilterPanel({ filter, onChange, total, options, onClose }: {
   filter: PeopleFilter; onChange: (f: PeopleFilter) => void; total: number | undefined;
-  options: { departments: Opt[]; locations: Opt[]; legalEntities: Opt[]; jobTitles: Opt[]; grades: Opt[] }; onClose?: () => void;
+  options: { departments: Opt[]; locations: Opt[]; legalEntities: Opt[]; jobTitles: Opt[]; grades: Opt[]; teams?: Opt[] }; onClose?: () => void;
 }) {
   const set = <K extends keyof PeopleFilter>(key: K, value: PeopleFilter[K]) => onChange({ ...filter, [key]: value });
   return (
@@ -169,6 +170,7 @@ export function FilterPanel({ filter, onChange, total, options, onClose }: {
         <Group title="Locations" options={toOptions(options.locations)} values={filter.locationIds} onChange={(v) => set("locationIds", v)} />
         <Group title="Job titles" options={toOptions(options.jobTitles)} values={filter.jobTitleIds} onChange={(v) => set("jobTitleIds", v)} />
         <Group title="Grades" options={toOptions(options.grades)} values={filter.gradeIds} onChange={(v) => set("gradeIds", v)} />
+        <Group title="Teams" options={toOptions(options.teams ?? [])} values={filter.teamIds} onChange={(v) => set("teamIds", v)} />
         <Group title="Length of service" options={TENURE_OPTIONS} values={filter.tenureBands} onChange={(v) => set("tenureBands", v)} />
         <Group title="Age" options={AGE_OPTIONS} values={filter.ageBands} onChange={(v) => set("ageBands", v)} />
         <Group title="Gender" options={GENDER_OPTIONS} values={filter.genders} onChange={(v) => set("genders", v)} />
@@ -388,7 +390,7 @@ export function PeopleList() {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         {panel && options && (
           <FilterPanel filter={filter} onChange={change} total={list?.totalCount} onClose={() => setPanel(false)}
-            options={{ departments: options.departments, locations: options.locations, legalEntities: options.legalEntities, jobTitles: options.jobTitles, grades: options.grades }} />
+            options={{ departments: options.departments, locations: options.locations, legalEntities: options.legalEntities, jobTitles: options.jobTitles, grades: options.grades, teams: options.teams }} />
         )}
         <section className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
           {error ? <div className="p-5"><ErrorNote error={errorMessage(error)} /></div> : !list ? (

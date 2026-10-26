@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  faDownload, faEllipsis, faFile, faFileExcel, faFileImage, faFilePdf, faFileWord, faFolder, faFolderOpen, faFolderPlus,
+  faCircleCheck, faDownload, faEllipsis, faFile, faFileExcel, faFileImage, faFilePdf, faFileWord, faFolder, faFolderOpen, faFolderPlus,
   faIdCard, faLayerGroup, faPen, faTrash, faUpload, faUsers,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -27,7 +27,9 @@ const FoldersDocument = graphql(`
 
 const FilesDocument = graphql(`
   query CompanyFiles($folderId: ID, $search: String) {
-    companyFiles(folderId: $folderId, search: $search) { id title originalName contentType size shared folderId uploadedBy createdAt }
+    companyFiles(folderId: $folderId, search: $search) {
+      id title originalName contentType size shared folderId uploadedBy createdAt requiresAcknowledgement acknowledgedByMe acknowledgedCount
+    }
   }
 `);
 
@@ -54,6 +56,35 @@ const RemoveFilesDocument = graphql(`
     removeCompanyFiles(ids: $ids)
   }
 `);
+
+const AcknowledgeDocument = graphql(`
+  mutation AcknowledgeCompanyFile($id: ID!) { acknowledgeCompanyFile(id: $id) { id acknowledgedByMe } }
+`);
+
+const ReadersDocument = graphql(`
+  query FileAcknowledgements($id: ID!) { fileAcknowledgements(id: $id) { name email acknowledgedAt } }
+`);
+
+function ReadersDialog({ file, onClose }: { file: { id: string; title: string }; onClose: () => void }) {
+  const [{ data, error }] = useQuery({ query: ReadersDocument, variables: { id: file.id } });
+  const rows = data?.fileAcknowledgements ?? [];
+  const done = rows.filter((r) => r.acknowledgedAt).length;
+  return (
+    <Dialog open onClose={onClose} title={`Who has read ${file.title}`} description={data ? `${done} of ${rows.length} people` : undefined}
+      footer={<Button variant="secondary" onClick={onClose}>Close</Button>}>
+      {error ? <ErrorNote error={errorMessage(error)} /> : !data ? <Loading /> : (
+        <ul className="max-h-96 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+          {rows.map((r) => (
+            <li key={r.email} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <span className="min-w-0 truncate text-ink">{r.name}</span>
+              {r.acknowledgedAt ? <Badge tone="good" dot>Read {formatDate(r.acknowledgedAt)}</Badge> : <Badge tone="warn" dot>Not yet</Badge>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Dialog>
+  );
+}
 
 const DownloadDocument = graphql(`
   mutation CompanyFileDownloadUrl($id: ID!) {
@@ -148,7 +179,9 @@ function Files() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<Sort>("nameA");
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [dialog, setDialog] = useState<null | { kind: "upload" } | { kind: "folder"; folder?: Folder } | { kind: "rename"; file: CompanyFile }>(null);
+  const [dialog, setDialog] = useState<null | { kind: "upload" } | { kind: "folder"; folder?: Folder } | { kind: "rename"; file: CompanyFile }
+    | { kind: "readers"; file: CompanyFile }>(null);
+  const [, acknowledge] = useMutation(AcknowledgeDocument);
   const [notice, setNotice] = useState<string>();
   const [{ data: folderData }, refetchFolders] = useQuery({ query: FoldersDocument });
   const [{ data, error, fetching }, refetchFiles] = useQuery({
@@ -291,6 +324,11 @@ function Files() {
                             {!folderId && f.folderId && ` · ${folders.find((x) => x.id === f.folderId)?.name ?? ""}`}
                           </p>
                         </div>
+                        {f.requiresAcknowledgement && (manage
+                          ? <button type="button" onClick={() => setDialog({ kind: "readers", file: f })} className="text-xs font-medium text-brand-ink hover:underline">Read by {f.acknowledgedCount}</button>
+                          : f.acknowledgedByMe ? <Badge tone="good" dot>You have read this</Badge> : (
+                            <Button size="sm" onClick={async () => { await acknowledge({ id: f.id }); refresh(); }}>I have read it</Button>
+                          ))}
                         {manage && (f.shared
                           ? <Badge tone="good"><FontAwesomeIcon icon={faUsers} className="mr-1" />Shared</Badge>
                           : <Badge>HR only</Badge>)}
@@ -307,6 +345,9 @@ function Files() {
                                 <>
                                   <button type="button" role="menuitem" className={item} onClick={() => { close(); void update({ id: f.id, shared: !f.shared }); }}>
                                     <FontAwesomeIcon icon={faUsers} fixedWidth className="text-muted" />{f.shared ? "Stop sharing with employees" : "Share with employees"}
+                                  </button>
+                                  <button type="button" role="menuitem" className={item} onClick={() => { close(); void update({ id: f.id, requiresAcknowledgement: !f.requiresAcknowledgement }); }}>
+                                    <FontAwesomeIcon icon={faCircleCheck} fixedWidth className="text-muted" />{f.requiresAcknowledgement ? "Stop asking people to confirm" : "Ask everyone to confirm they read it"}
                                   </button>
                                   <button type="button" role="menuitem" className={item} onClick={() => { close(); setDialog({ kind: "rename", file: f }); }}>
                                     <FontAwesomeIcon icon={faPen} fixedWidth className="text-muted" />Rename
@@ -363,6 +404,7 @@ function Files() {
             if (id && !dialog.folder) go({ folder: id });
           }} />
       )}
+      {dialog?.kind === "readers" && <ReadersDialog file={dialog.file} onClose={() => setDialog(null)} />}
       {dialog?.kind === "rename" && (
         <NameDialog title="Rename file" label="Name" initial={dialog.file.title} onClose={() => setDialog(null)}
           onSave={async (title) => { const problem = await update({ id: dialog.file.id, title }); if (!problem) setDialog(null); return problem; }} />

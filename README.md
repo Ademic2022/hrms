@@ -40,3 +40,18 @@ npm test
 - Permission checks in the UI (`useSession().can(...)`) only shape what is shown. The API
   enforces every rule.
 - `src/proxy.ts` sends visitors without a session cookie to `/login`.
+
+## Where things are
+
+| Path | Page |
+|---|---|
+| `/home` | Widget home page (customizable per person) |
+| `/employees` | People: List (filters, saved views, power edit), Directory, Org chart |
+| `/employees/[id]` | Profile with customizable tabs; snapshot panel opens from anywhere |
+| `/leave`, `/leave/approvals`, `/leave/calendar` | Time off, approvals inbox (leave plus pay/job changes), calendar |
+| `/reports` | Recent, standard and custom reports |
+| `/files` | Company files and (for HR) employee documents |
+| `/settings/*` | Company, users and access levels, approvals, email alerts, directory, job organization, employee fields, time off, benefits, onboarding, training |
+| `/account` | Password, two-step sign-in, calendar links |
+
+Settings areas and their sections are listed in `src/components/settings/areas.ts`.

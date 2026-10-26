@@ -10,6 +10,12 @@ type AccountPayload {
   errors: [FieldError!]!
 }
 
+type AcknowledgementRow {
+  name: String!
+  email: String!
+  acknowledgedAt: DateTime
+}
+
 input AddTaskInput {
   employeeId: ID!
   kind: ChecklistKind!
@@ -25,6 +31,12 @@ input AdjustLeaveInput {
   leaveTypeId: ID!
   amount: Decimal!
   reason: String!
+}
+
+type AlertOptions {
+  kinds: [Choice!]!
+  dateFields: [Choice!]!
+  recipientTypes: [Choice!]!
 }
 
 type Announcement {
@@ -47,6 +59,50 @@ input AnnouncementInput {
 type AnnouncementPayload {
   announcement: Announcement
   errors: [FieldError!]!
+}
+
+type ApiKey {
+  id: ID!
+  name: String!
+  prefix: String!
+  readOnly: Boolean!
+  owner: String!
+  createdAt: String!
+  lastUsedAt: String
+}
+
+type ApprovalChain {
+  kind: String!
+  name: String!
+  enabled: Boolean!
+  steps: JSON!
+}
+
+type ApprovalChainPayload {
+  chain: ApprovalChain
+  errors: [FieldError!]!
+}
+
+type ApprovalStepType {
+  key: String!
+  label: String!
+}
+
+type AuditEntry {
+  id: ID!
+  at: String!
+  actor: String
+  action: String!
+  objectType: String!
+  objectId: ID
+  summary: String!
+  changes: JSON!
+  ipAddress: String
+}
+
+type AuditPage {
+  entries: [AuditEntry!]!
+  hasMore: Boolean!
 }
 
 enum BenefitBasis {
@@ -132,6 +188,13 @@ type CalendarAbsence {
 
   """Null for colleagues: they see only that someone is away."""
   leaveType: LeaveType
+}
+
+type CalendarFeed {
+  id: ID!
+  kinds: [String!]!
+  url: String!
+  lastUsedAt: String
 }
 
 type Celebration {
@@ -240,6 +303,11 @@ type ChecklistPayload {
   errors: [FieldError!]!
 }
 
+type Choice {
+  key: String!
+  label: String!
+}
+
 input ColumnInput {
   key: String = null
   name: String!
@@ -257,6 +325,9 @@ type CompanyFile {
   folderId: ID
   uploadedBy: String
   createdAt: DateTime!
+  requiresAcknowledgement: Boolean!
+  acknowledgedByMe: Boolean!
+  acknowledgedCount: Int!
 }
 
 type CompanyFilePayload {
@@ -495,6 +566,12 @@ type DepartmentPayload {
   errors: [FieldError!]!
 }
 
+type DirectoryAccess {
+  directory: Boolean!
+  orgChart: Boolean!
+  fields: [String!]!
+}
+
 type DirectoryEntry {
   id: ID!
   fullName: String!
@@ -521,12 +598,23 @@ type DirectoryEntry {
   outUntil: Date
   employeeNumber: String!
   hireDate: Date
+  mobile: String!
+  linkedinUrl: String!
+  twitter: String!
+  facebook: String!
 }
 
 type DirectoryEntryConnection {
   nodes: [DirectoryEntry!]!
   pageInfo: PageInfo!
   totalCount: Int!
+}
+
+type DirectorySettings {
+  directory: Boolean!
+  orgChart: Boolean!
+  roles: [String!]!
+  fields: [String!]!
 }
 
 type DocumentCategory {
@@ -551,6 +639,38 @@ type DocumentOwner {
 type DocumentPayload {
   document: EmployeeDocument
   errors: [FieldError!]!
+}
+
+type EmailAlert {
+  id: ID!
+  name: String!
+  kind: String!
+  field: String!
+  daysBefore: Int!
+  recipients: JSON!
+  enabled: Boolean!
+  lastSentOn: String
+}
+
+input EmailAlertInput {
+  id: ID = null
+  name: String!
+  kind: String!
+  field: String! = ""
+  daysBefore: Int! = 0
+  recipients: JSON = null
+  enabled: Boolean! = true
+}
+
+type EmailAlertPayload {
+  alert: EmailAlert
+  errors: [FieldError!]!
+}
+
+type EmailPreference {
+  key: String!
+  label: String!
+  email: Boolean!
 }
 
 type EmergencyContact {
@@ -709,6 +829,7 @@ input EmployeeFilter {
   locationIds: [ID!] = null
   jobTitleIds: [ID!] = null
   gradeIds: [ID!] = null
+  teamIds: [ID!] = null
   employmentTypes: [EmploymentType!] = null
 
   """Gender values, or "none" for not recorded."""
@@ -743,6 +864,9 @@ type EmployeeNote {
 type EmployeePayload {
   employee: Employee
   errors: [FieldError!]!
+
+  """The change was sent to its approvers instead of applied."""
+  waitingForApproval: Boolean!
 }
 
 enum EmployeeStatus {
@@ -851,6 +975,9 @@ type Grade {
   name: String!
   rank: Int!
   isActive: Boolean!
+  payMin: Decimal
+  payMid: Decimal
+  payMax: Decimal
 }
 
 type GradePayload {
@@ -954,6 +1081,7 @@ type JobChangePayload {
   employee: Employee
   record: EmploymentRecord
   errors: [FieldError!]!
+  waitingForApproval: Boolean!
 }
 
 enum JobChangeType {
@@ -1206,6 +1334,39 @@ type LegalEntityPayload {
   errors: [FieldError!]!
 }
 
+type ListInfo {
+  key: ListKey!
+  name: String!
+}
+
+enum ListKey {
+  PAY_CHANGE_REASON
+  JOB_CHANGE_REASON
+  TERMINATION_REASON
+  RELATIONSHIP
+  DEGREE
+}
+
+type ListOption {
+  id: ID!
+  listKey: ListKey!
+  label: String!
+  position: Int!
+  isActive: Boolean!
+}
+
+input ListOptionInput {
+  id: ID = null
+  listKey: ListKey!
+  label: String!
+  isActive: Boolean! = true
+}
+
+type ListOptionPayload {
+  option: ListOption
+  errors: [FieldError!]!
+}
+
 type Location {
   id: ID!
   name: String!
@@ -1349,6 +1510,16 @@ type Mutation {
   saveGrade(input: SaveGradeInput!): GradePayload!
   hireEmployee(input: HireEmployeeInput!): EmployeePayload!
   updateEmployee(input: UpdateEmployeeInput!): EmployeePayload!
+
+  """
+  Ask for a job change or promotion for someone you manage. It always waits for approval.
+  """
+  requestJobChange(input: ChangeJobInput!): JobChangePayload!
+
+  """
+  Ask for a pay change for someone you manage. It always waits for approval.
+  """
+  requestPayChange(input: ChangeCompensationInput!): EmployeePayload!
   changeEmployeeJob(input: ChangeJobInput!): JobChangePayload!
   changeEmployeeCompensation(input: ChangeCompensationInput!): EmployeePayload!
 
@@ -1509,11 +1680,53 @@ type Mutation {
   deleteCompanyFolder(id: ID!): Boolean!
   updateCompanyFile(input: UpdateCompanyFileInput!): CompanyFilePayload!
 
+  """Confirm you have read a file that asks for it."""
+  acknowledgeCompanyFile(id: ID!): CompanyFile!
+
   """Remove company files. They leave every list but stay in storage."""
   removeCompanyFiles(ids: [ID!]!): Int!
 
   """A ten-minute download link. Each one is recorded in the audit log."""
   companyFileDownloadUrl(id: ID!): String!
+  saveApprovalChain(kind: String!, enabled: Boolean!, steps: JSON!): ApprovalChainPayload!
+
+  """Choose which notification groups you also get by email."""
+  setEmailPreferences(emailOff: [String!]!): [EmailPreference!]!
+
+  """
+  Make a private calendar link with some of: time_off, birthdays, anniversaries, holidays.
+  """
+  createCalendarFeed(kinds: [String!]!): CalendarFeed!
+
+  """Delete a calendar link; calendars using it stop updating."""
+  deleteCalendarFeed(id: ID!): Boolean!
+
+  """
+  Make an API key that acts as you, with your access. The secret is shown once.
+  """
+  createApiKey(name: String!, readOnly: Boolean! = true): NewApiKey!
+  revokeApiKey(id: ID!): Boolean!
+  saveTrainingCourse(input: TrainingCourseInput!): TrainingCoursePayload!
+  deleteTrainingCourse(id: ID!): Boolean!
+  saveTeam(input: TeamInput!): TeamPayload!
+  deleteTeam(id: ID!): Boolean!
+  saveDirectorySettings(settings: JSON!): DirectorySettings!
+  saveEmailAlert(input: EmailAlertInput!): EmailAlertPayload!
+  deleteEmailAlert(id: ID!): Boolean!
+
+  """
+  Work an alert out for today and send it now. Returns how many people were told.
+  """
+  sendEmailAlertNow(id: ID!): Int!
+  decidePendingChange(id: ID!, approve: Boolean!, note: String = null): PendingChangePayload!
+  cancelPendingChange(id: ID!): PendingChangePayload!
+  saveListOption(input: ListOptionInput!): ListOptionPayload!
+
+  """Put a list's choices in this order."""
+  reorderListOptions(ids: [ID!]!): Boolean!
+
+  """Delete a choice. Records that used it keep their text."""
+  deleteListOption(id: ID!): Boolean!
 }
 
 input MyDetailsInput {
@@ -1568,6 +1781,13 @@ type MyStuff {
 type NamedRef {
   id: ID!
   name: String!
+}
+
+type NewApiKey {
+  key: ApiKey!
+
+  """Shown once. Send it as: Authorization: Bearer <secret>"""
+  secret: String!
 }
 
 type NewHire {
@@ -1649,6 +1869,28 @@ enum PayType {
   HOURLY
   COMMISSION
   CONTRACT
+}
+
+type PendingChange {
+  id: ID!
+  kind: String!
+  kindName: String!
+  employeeId: ID!
+  employeeName: String!
+  summary: String!
+  status: String!
+  step: Int!
+  stepCount: Int!
+  decisions: JSON!
+  requestedBy: String
+  createdAt: String!
+  canDecide: Boolean!
+  canCancel: Boolean!
+}
+
+type PendingChangePayload {
+  change: PendingChange
+  errors: [FieldError!]!
 }
 
 type PendingLeave {
@@ -1936,6 +2178,67 @@ type Query {
 
   """Company files you can see, in one folder or all of them."""
   companyFiles(folderId: ID = null, search: String = null): [CompanyFile!]!
+
+  """Who has and has not confirmed reading a file. Needs documents.manage."""
+  fileAcknowledgements(id: ID!): [AcknowledgementRow!]!
+
+  """The dropdown lists HR manages."""
+  optionLists: [ListInfo!]!
+
+  """
+  Choices in a dropdown list (all lists when no key), active ones unless asked.
+  """
+  listOptions(listKey: ListKey = null, includeInactive: Boolean! = false): [ListOption!]!
+
+  """Approval chains for pay and job changes."""
+  approvalChains: [ApprovalChain!]!
+
+  """
+  Company directory and org chart settings, with the fields that can be shown.
+  """
+  directorySettings: DirectorySettings!
+  directoryFieldChoices: [Choice!]!
+
+  """
+  Whether you see the directory and org chart, and which of their fields.
+  """
+  myDirectoryAccess: DirectoryAccess!
+
+  """Teams across departments. Everyone signed in sees them."""
+  teams(includeInactive: Boolean! = false): [Team!]!
+
+  """The training catalogue."""
+  trainingCourses(includeInactive: Boolean! = false): [TrainingCourse!]!
+
+  """Required training for one person: when each course is next due."""
+  trainingStatus(employeeId: ID!): [TrainingStatusType!]!
+
+  """Your private calendar links."""
+  myCalendarFeeds: [CalendarFeed!]!
+
+  """Every API key in the company that is not revoked. Needs users.manage."""
+  apiKeys: [ApiKey!]!
+
+  """The company's audit log, newest first. Needs audit.view."""
+  auditLog(search: String = null, action: String = null, employeeId: ID = null, dateFrom: String = null, dateTo: String = null, offset: Int! = 0, limit: Int! = 50): AuditPage!
+
+  """
+  People, files and reports matching some text, for the search box. At most 6 of each.
+  """
+  search(q: String!): [SearchHit!]!
+
+  """Notification groups and whether you get each by email."""
+  myEmailPreferences: [EmailPreference!]!
+
+  """HR's email alerts."""
+  emailAlerts: [EmailAlert!]!
+  alertOptions: AlertOptions!
+  approvalStepTypes: [ApprovalStepType!]!
+
+  """
+  Pay and job changes waiting for you, and (for HR) every change still waiting.
+  """
+  pendingChanges(includeDecided: Boolean! = false): [PendingChange!]!
 }
 
 type RecoveryCodesPayload {
@@ -2131,6 +2434,9 @@ input SaveGradeInput {
   name: String
   rank: Int
   isActive: Boolean
+  payMin: Decimal
+  payMid: Decimal
+  payMax: Decimal
 }
 
 input SaveJobTitleInput {
@@ -2215,12 +2521,21 @@ input SaveTaskTemplateInput {
   assignee: TaskAssignee
   dueOffset: Int
   isActive: Boolean
+  appliesTo: JSON
 }
 
 input ScopeInput {
   legalEntityIds: [ID!]! = []
   locationIds: [ID!]! = []
   departmentIds: [ID!]! = []
+}
+
+type SearchHit {
+  kind: String!
+  title: String!
+  subtitle: String!
+  href: String!
+  photoUrl: String
 }
 
 input SetPasswordInput {
@@ -2311,10 +2626,38 @@ type TaskTemplate {
   assignee: TaskAssignee!
   dueOffset: Int!
   isActive: Boolean!
+
+  """{"departments": [ids], ...}; empty means everyone."""
+  appliesTo: JSON!
 }
 
 type TaskTemplatePayload {
   template: TaskTemplate
+  errors: [FieldError!]!
+}
+
+type Team {
+  id: ID!
+  name: String!
+  description: String!
+  isActive: Boolean!
+  leadId: ID
+  leadName: String
+  memberIds: [ID!]!
+  memberNames: [String!]!
+}
+
+input TeamInput {
+  id: ID = null
+  name: String!
+  description: String! = ""
+  isActive: Boolean! = true
+  leadId: ID = null
+  memberIds: [ID!]! = []
+}
+
+type TeamPayload {
+  team: Team
   errors: [FieldError!]!
 }
 
@@ -2360,10 +2703,48 @@ type TimeOffUsedData {
   people: Int!
 }
 
+type TrainingCourse {
+  id: ID!
+  name: String!
+  description: String!
+  category: String!
+  required: Boolean!
+  frequencyMonths: Int!
+  dueDays: Int
+  appliesTo: JSON!
+  isActive: Boolean!
+}
+
+input TrainingCourseInput {
+  id: ID = null
+  name: String!
+  description: String! = ""
+  category: String! = ""
+  required: Boolean! = false
+  frequencyMonths: Int! = 0
+  dueDays: Int = null
+  appliesTo: JSON! = {  }
+  isActive: Boolean! = true
+}
+
+type TrainingCoursePayload {
+  course: TrainingCourse
+  errors: [FieldError!]!
+}
+
+type TrainingStatusType {
+  courseId: ID!
+  course: String!
+  lastCompleted: String
+  dueOn: String
+  state: String!
+}
+
 input UpdateCompanyFileInput {
   id: ID!
   title: String = null
   shared: Boolean = null
+  requiresAcknowledgement: Boolean = null
   folderId: ID = null
   toTopLevel: Boolean! = false
 }

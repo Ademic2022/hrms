@@ -5,6 +5,7 @@ import { useMutation } from "urql";
 
 import { IconEye, IconLock, IconPlus } from "@/components/icons";
 import { ActionDialog, Badge, Button, Card, Checkbox, cardFrame, FrameSlot, type Frame, Dialog, ErrorNote, Field, Input, Select, Textarea } from "@/components/ui";
+import { ListInput } from "@/components/settings/OptionLists";
 import { graphql } from "@/gql";
 import type { EmployeeProfileQuery } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
@@ -73,7 +74,7 @@ function ContactDialog({ employeeId, contact, onClose, onSaved }: {
         {formError && <ErrorNote error={formError} />}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Name" error={errors.name}><Input value={v.name} aria-invalid={!!errors.name} onChange={(e) => set("name", e.target.value)} /></Field>
-          <Field label="Relationship" optional error={errors.relationship}><Input value={v.relationship} placeholder="Spouse" onChange={(e) => set("relationship", e.target.value)} /></Field>
+          <Field label="Relationship" optional error={errors.relationship}><ListInput id="contact-relationship" listKey="RELATIONSHIP" value={v.relationship} placeholder="Spouse" onChange={(e) => set("relationship", e.target.value)} /></Field>
           <Field label="Mobile phone" error={errors.phone}><Input type="tel" value={v.phone} aria-invalid={!!errors.phone} onChange={(e) => set("phone", e.target.value)} /></Field>
           <Field label="Home phone" optional error={errors.homePhone}><Input type="tel" value={v.homePhone} onChange={(e) => set("homePhone", e.target.value)} /></Field>
           <div className="grid grid-cols-[1fr_90px] gap-3">

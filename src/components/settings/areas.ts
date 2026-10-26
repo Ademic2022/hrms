@@ -1,5 +1,6 @@
 import {
-  faBuilding, faCalendarDays, faClipboardList, faHeartPulse, faIdCard, faSitemap, faUserLock, type IconDefinition,
+  faAddressBook, faBell, faClockRotateLeft, faBuilding, faCalendarDays, faClipboardList, faGraduationCap, faHeartPulse, faIdCard, faListCheck, faSitemap,
+  faUserLock, type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -25,16 +26,29 @@ export const AREAS: SettingsArea[] = [
   },
   {
     href: "/settings/users", label: "Users and access", icon: faUserLock, permission: PERMS.usersManage,
-    tabs: [{ key: "users", label: "Users" }, { key: "levels", label: "Access levels" }],
+    tabs: [{ key: "users", label: "Users" }, { key: "levels", label: "Access levels" }, { key: "api", label: "API keys" }],
   },
+  {
+    href: "/settings/approvals", label: "Approvals", icon: faListCheck, permission: PERMS.employeesManage,
+    tabs: [
+      { key: "pay_change", label: "Pay changes" }, { key: "job_change", label: "Job changes" },
+      { key: "time_off", label: "Time off" }, { key: "info", label: "Information updates" },
+    ],
+  },
+  { href: "/settings/alerts", label: "Email alerts", icon: faBell, permission: PERMS.employeesManage },
+  { href: "/settings/directory", label: "Company directory", icon: faAddressBook, permission: PERMS.employeesManage },
   {
     href: "/settings/organization", label: "Job organization", icon: faSitemap, permission: PERMS.orgManage,
     tabs: [
       { key: "legalEntities", label: "Legal entities" }, { key: "locations", label: "Locations" },
-      { key: "departments", label: "Departments" }, { key: "jobTitles", label: "Job titles" }, { key: "grades", label: "Grades" },
+      { key: "departments", label: "Departments" }, { key: "jobTitles", label: "Job titles" }, { key: "grades", label: "Grades and pay bands" },
+      { key: "teams", label: "Teams" },
     ],
   },
-  { href: "/settings/fields", label: "Employee fields", icon: faIdCard, permission: PERMS.employeesManage },
+  {
+    href: "/settings/fields", label: "Employee fields", icon: faIdCard, permission: PERMS.employeesManage,
+    tabs: [{ key: "fields", label: "Custom fields" }, { key: "lists", label: "Dropdown lists" }],
+  },
   {
     href: "/settings/time-off", label: "Time off", icon: faCalendarDays, permission: PERMS.leaveManage,
     tabs: [{ key: "types", label: "Leave types" }, { key: "policies", label: "Policies" }, { key: "holidays", label: "Public holidays" }],
@@ -44,6 +58,8 @@ export const AREAS: SettingsArea[] = [
     href: "/settings/checklists", label: "Onboarding and offboarding", icon: faClipboardList, permission: PERMS.employeesManage,
     tabs: [{ key: "ONBOARDING", label: "Onboarding" }, { key: "OFFBOARDING", label: "Offboarding" }],
   },
+  { href: "/settings/training", label: "Training", icon: faGraduationCap, permission: PERMS.employeesManage },
+  { href: "/settings/audit", label: "Audit log", icon: faClockRotateLeft, permission: PERMS.auditView },
 ];
 
 /** The section of a settings area shown now, kept in the address (?tab=) so the layout's menu can switch it. */

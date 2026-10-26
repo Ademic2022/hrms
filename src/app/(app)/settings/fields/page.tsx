@@ -5,7 +5,9 @@ import { useMutation, useQuery } from "urql";
 
 import { IconPlus } from "@/components/icons";
 import { Badge, Button, Card, Checkbox, Dialog, Empty, ErrorNote, Field, Input, Loading, Notice, Select, Table, TD, TH } from "@/components/ui";
+import { useSettingsTab } from "@/components/settings/areas";
 import { SettingsIntro } from "@/components/settings/Intro";
+import { OptionLists } from "@/components/settings/OptionLists";
 import { graphql } from "@/gql";
 import type { CustomFieldsAdminQuery, CustomFieldType } from "@/gql/graphql";
 import { errorMessage } from "@/lib/api";
@@ -98,9 +100,11 @@ export default function CustomFieldsPage() {
   const { can } = useSession();
   const [{ data, error }, reload] = useQuery({ query: CustomFieldsAdminDocument });
   const [editing, setEditing] = useState<{ row: Row | null } | null>(null);
+  const [tab] = useSettingsTab(["fields", "lists"] as const, "fields");
   const [saved, setSaved] = useState<string>();
 
   if (!can(PERMS.employeesManage)) return <Notice tone="warning">You do not have permission to set up employee fields.</Notice>;
+  if (tab === "lists") return <><SettingsIntro>The choices offered for reasons, relationships and degrees.</SettingsIntro><OptionLists /></>;
   if (error) return <ErrorNote error={errorMessage(error)} />;
   if (!data) return <Loading />;
   const fields = data.customFields;

@@ -10,6 +10,7 @@ export type PeopleFilter = {
   legalEntityIds?: string[];
   jobTitleIds?: string[];
   gradeIds?: string[];
+  teamIds?: string[];
   genders?: string[];
   ageBands?: string[];
   tenureBands?: string[];
@@ -53,7 +54,7 @@ export function toEmployeeFilter(filter: PeopleFilter, showing: Showing): Employ
 }
 
 export const filterCount = (f: PeopleFilter) =>
-  (["statuses", "employmentTypes", "departmentIds", "locationIds", "legalEntityIds", "jobTitleIds", "gradeIds", "genders", "ageBands", "tenureBands"] as const)
+  (["statuses", "employmentTypes", "departmentIds", "locationIds", "legalEntityIds", "jobTitleIds", "gradeIds", "teamIds", "genders", "ageBands", "tenureBands"] as const)
     .reduce((n, k) => n + (f[k]?.length ?? 0), 0) + (f.managersOnly ? 1 : 0) + (f.hiredFrom || f.hiredTo ? 1 : 0);
 
 export const STATUS_OPTIONS: { value: EmployeeStatus; label: string }[] = [

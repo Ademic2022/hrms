@@ -17,7 +17,9 @@ import { useSession } from "@/lib/session";
 
 const TemplatesDocument = graphql(`
   query TaskTemplates {
-    taskTemplates { id kind title description category assignee dueOffset isActive }
+    taskTemplates { id kind title description category assignee dueOffset isActive appliesTo }
+    departments { id name isActive }
+    locations { id name isActive }
   }
 `);
 
@@ -35,7 +37,15 @@ function when(days: number, kind: ChecklistKind) {
   return `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ${days < 0 ? "before" : "after"} ${anchor === "start" ? "start" : "the last day"}`;
 }
 
-function TemplateDialog({ kind, template, onClose, onSaved }: { kind: ChecklistKind; template: Template | null; onClose: () => void; onSaved: () => void }) {
+type Places = { departments: { id: string; name: string; isActive: boolean }[]; locations: { id: string; name: string; isActive: boolean }[] };
+
+function TemplateDialog({ kind, template, places, onClose, onSaved }: {
+  kind: ChecklistKind; template: Template | null; places: Places; onClose: () => void; onSaved: () => void;
+}) {
+  const applies = (template?.appliesTo ?? {}) as Record<string, string[]>;
+  const [scope, setScope] = useState({ departments: applies.departments ?? [], locations: applies.locations ?? [] });
+  const pick = (k: "departments" | "locations", id: string) =>
+    setScope((s) => ({ ...s, [k]: s[k].includes(id) ? s[k].filter((x) => x !== id) : [...s[k], id] }));
   const [, save] = useMutation(SaveTemplateDocument);
   const [v, setV] = useState({
     title: template?.title ?? "", category: template?.category ?? "", assignee: template?.assignee ?? ("HR" as TaskAssignee),
@@ -54,7 +64,7 @@ function TemplateDialog({ kind, template, onClose, onSaved }: { kind: ChecklistK
     if (Object.keys(bad).length) return;
     setBusy(true);
     const result = await save({ input: { id: template?.id ?? null, kind, title: v.title, category: v.category, assignee: v.assignee,
-      dueOffset: Number(v.dueOffset), description: v.description, isActive: v.isActive } });
+      dueOffset: Number(v.dueOffset), description: v.description, isActive: v.isActive, appliesTo: scope } });
     setBusy(false);
     const found: Record<string, string> = {};
     const failed = reportErrors(result, result.data?.saveTaskTemplate.errors, ["title", "category", "assignee", "dueOffset", "description"] as const,
@@ -84,6 +94,22 @@ function TemplateDialog({ kind, template, onClose, onSaved }: { kind: ChecklistK
           </Field>
         </div>
         <Field label="Details" optional><Input value={v.description} onChange={(e) => setV({ ...v, description: e.target.value })} /></Field>
+        <fieldset>
+          <legend className="mb-1 text-sm font-medium text-ink">For</legend>
+          <p className="mb-2 text-xs text-muted">Only people in these departments or locations get this task. Leave both empty for everyone.</p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {(["departments", "locations"] as const).map((k) => (
+              <div key={k} className="max-h-36 space-y-1 overflow-y-auto">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">{k === "departments" ? "Departments" : "Locations"}</p>
+                {places[k].filter((x) => x.isActive).map((x) => (
+                  <label key={x.id} className="flex items-center gap-2 text-sm text-ink">
+                    <input type="checkbox" className="h-4 w-4 accent-[var(--brand)]" checked={scope[k].includes(x.id)} onChange={() => pick(k, x.id)} />{x.name}
+                  </label>
+                ))}
+              </div>
+            ))}
+          </div>
+        </fieldset>
         {template && <Checkbox label="In use" description="Tasks not in use are left out of new checklists." checked={v.isActive} onChange={(c) => setV({ ...v, isActive: c })} />}
       </form>
     </Dialog>
@@ -125,7 +151,7 @@ export default function ChecklistSetupPage() {
           </tbody>
         </Table>
       </Card>
-      {editing && <TemplateDialog kind={kind} template={editing.template} onClose={() => setEditing(null)}
+      {editing && <TemplateDialog kind={kind} template={editing.template} places={data} onClose={() => setEditing(null)}
         onSaved={() => { setEditing(null); setSaved("Task saved."); reload({ requestPolicy: "network-only" }); }} />}
     </>
   );

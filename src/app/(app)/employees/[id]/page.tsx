@@ -1,10 +1,11 @@
 "use client";
 
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "urql";
 
 import { DocumentsCard } from "@/components/documents/Documents";
+import { TrainingDue } from "@/components/profile/TrainingDue";
 import { ChangeJobDialog, ChangePayDialog, ChangeStatusDialog, canChangeStatus } from "@/components/employees/EmployeeDialogs";
 import { EmergencyContactsCard, PrivateDetailsCard } from "@/components/employees/RecordCards";
 import { MyChangeNotice } from "@/components/employees/SelfService";
@@ -110,7 +111,8 @@ function TabIcon({ icon }: { icon: string }) {
   return <Icon size={24} />;
 }
 
-type Dialog = "job" | "promotion" | "status" | "pay" | "asset" | "archive" | "reset" | "layout" | "tabs" | null;
+type Dialog = "job" | "promotion" | "status" | "pay" | "asset" | "archive" | "reset" | "layout" | "tabs"
+  | "ask-job" | "ask-promotion" | "ask-pay" | null;
 
 function EmployeeRecord() {
   const { id } = useParams<{ id: string }>();
@@ -178,8 +180,9 @@ function EmployeeRecord() {
         if (!table || (table.hrOnly && !manage)) return null;
         // Pay tables (bonus, commission, equity) show only to those the API gives pay to.
         if (table.pay && !e.bonusTarget) return null;
-        return <TableSection key={key} table={table} employee={e} canManage={table.pay ? can(PERMS.compensationManage) : manage}
+        const tableCard = <TableSection key={key} table={table} employee={e} canManage={table.pay ? can(PERMS.compensationManage) : manage}
           title={title} icon={section.icon} onSaved={saved} />;
+        return table.key === "training" ? <Fragment key={key}><TrainingDue employeeId={e.id} />{tableCard}</Fragment> : tableCard;
       }
       const common = { e, title, icon: section.icon, onSaved: saved };
       switch (item.key) {
@@ -216,7 +219,18 @@ function EmployeeRecord() {
         onCustomizeTabs={manage ? () => setDialog("tabs") : undefined}
         canChangePhoto={(self && Boolean(tenant?.employeesEditOwnPhoto)) || manage} onPhoto={() => saved("Photo updated.")}
         onError={(text) => setNotice({ tone: "error", text })}
-        actions={manage ? (
+        actions={!manage && !self && can(PERMS.employeesView) && e.status !== "TERMINATED" ? (
+          // Managers ask for changes for their reports; HR approves them (Settings → Approvals).
+          <Menu label="Request a Change">
+            {(close) => (
+              <>
+                <MenuItem icon={faArrowTrendUp} onClick={() => { close(); setDialog("ask-promotion"); }}>Promotion…</MenuItem>
+                <MenuItem icon={faBriefcase} onClick={() => { close(); setDialog("ask-job"); }}>Job information…</MenuItem>
+                <MenuItem icon={faMoneyBillWave} onClick={() => { close(); setDialog("ask-pay"); }}>Compensation…</MenuItem>
+              </>
+            )}
+          </Menu>
+        ) : manage ? (
           <>
             <Menu label="Request a Change">
               {(close) => {
@@ -290,8 +304,11 @@ function EmployeeRecord() {
         </div>
       </div>
 
-      {dialog === "job" && <ChangeJobDialog employee={e} changeType="CHANGE" onClose={() => setDialog(null)} onSaved={() => saved("Job change recorded.")} />}
-      {dialog === "promotion" && <ChangeJobDialog employee={e} changeType="PROMOTION" onClose={() => setDialog(null)} onSaved={() => saved("Promotion recorded.")} />}
+      {dialog === "job" && <ChangeJobDialog employee={e} changeType="CHANGE" onClose={() => setDialog(null)} onSaved={(m) => saved(m ?? "Job change recorded.")} />}
+      {dialog === "promotion" && <ChangeJobDialog employee={e} changeType="PROMOTION" onClose={() => setDialog(null)} onSaved={(m) => saved(m ?? "Promotion recorded.")} />}
+      {dialog === "ask-job" && <ChangeJobDialog request employee={e} changeType="CHANGE" onClose={() => setDialog(null)} onSaved={(m) => saved(m ?? "Request sent.")} />}
+      {dialog === "ask-promotion" && <ChangeJobDialog request employee={e} changeType="PROMOTION" onClose={() => setDialog(null)} onSaved={(m) => saved(m ?? "Request sent.")} />}
+      {dialog === "ask-pay" && <ChangePayDialog request employee={e} currency={tenant?.currency ?? ""} onClose={() => setDialog(null)} onSaved={(m) => saved(m ?? "Request sent.")} />}
       {dialog === "asset" && assets && (
         <RowDialog table={assets} employeeId={e.id} row={null} onClose={() => setDialog(null)} onSaved={() => saved("Asset added.")} />
       )}
@@ -304,7 +321,7 @@ function EmployeeRecord() {
           setDialog(null);
           setNotice({ tone: "success", text: "Password reset link sent." });
         }} />
-      {dialog === "pay" && <ChangePayDialog employee={e} currency={tenant?.currency ?? ""} onClose={() => setDialog(null)} onSaved={() => saved("Pay change recorded.")} />}
+      {dialog === "pay" && <ChangePayDialog employee={e} currency={tenant?.currency ?? ""} onClose={() => setDialog(null)} onSaved={(m) => saved(m ?? "Pay change recorded.")} />}
       {dialog === "status" && <ChangeStatusDialog employee={e} onClose={() => setDialog(null)} onSaved={() => saved("Status updated.")} />}
       {dialog === "layout" && (
         <CustomizeLayout layout={layout} tables={tables} fields={layoutData.customFields} tabKey={tab.key} onClose={() => setDialog(null)} onSaved={layoutSaved} />
