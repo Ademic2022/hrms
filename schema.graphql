@@ -88,6 +88,39 @@ type ApprovalStepType {
   label: String!
 }
 
+type AttendanceDay {
+  date: Date!
+  shift: String!
+  scheduled: Int!
+  worked: Int!
+  late: Boolean!
+  absent: Boolean!
+  onLeave: Boolean!
+  holiday: Boolean!
+  entries: [TimeEntry!]!
+  overtime: Overtime
+}
+
+type AttendanceSettings {
+  enabled: Boolean!
+  graceMinutes: Int!
+  requireLocation: Boolean!
+  overtimeAfterMinutes: Int!
+  overtimeMultiplier: Decimal!
+  payOvertime: Boolean!
+  deductAbsence: Boolean!
+}
+
+input AttendanceSettingsInput {
+  enabled: Boolean!
+  graceMinutes: Int! = 15
+  requireLocation: Boolean! = false
+  overtimeAfterMinutes: Int! = 30
+  overtimeMultiplier: Decimal! = "1.5"
+  payOvertime: Boolean! = true
+  deductAbsence: Boolean! = false
+}
+
 type AuditEntry {
   id: ID!
   at: String!
@@ -165,6 +198,17 @@ type BenefitPlan {
 type BenefitPlanPayload {
   plan: BenefitPlan
   errors: [FieldError!]!
+}
+
+type BoardRow {
+  employeeId: ID!
+  employeeName: String!
+  department: String
+  status: String!
+  clockIn: DateTime
+  clockOut: DateTime
+  worked: Int!
+  flags: [String!]!
 }
 
 type BonusTarget {
@@ -938,6 +982,125 @@ type EnrollmentPayload {
   errors: [FieldError!]!
 }
 
+type ExpenseAction {
+  id: ID!
+  actor: String
+  action: String!
+  stage: String!
+  note: String!
+  createdAt: DateTime!
+}
+
+type ExpenseCategory {
+  id: ID!
+  name: String!
+  description: String!
+  accountCode: String!
+  limitPerItem: Decimal
+  limitPerMonth: Decimal
+  receiptRequired: Boolean!
+  mileageRate: Decimal
+  isActive: Boolean!
+  used: Int!
+}
+
+input ExpenseCategoryInput {
+  id: ID = null
+  name: String!
+  description: String! = ""
+  accountCode: String! = ""
+  limitPerItem: Decimal = null
+  limitPerMonth: Decimal = null
+  receiptRequired: Boolean! = true
+  mileageRate: Decimal = null
+  isActive: Boolean! = true
+}
+
+type ExpenseCategoryPayload {
+  category: ExpenseCategory
+  errors: [FieldError!]!
+}
+
+type ExpenseClaim {
+  id: ID!
+  title: String!
+  employeeId: ID!
+  employeeName: String!
+  department: String
+  currency: String!
+  total: Decimal!
+  status: String!
+  stage: String!
+  approverName: String
+  submittedAt: DateTime
+  approvedAt: DateTime
+  paidAt: DateTime
+  payVia: String!
+  paymentReference: String!
+  payrollPeriod: String
+  linesCount: Int!
+  flags: [String!]!
+  mine: Boolean!
+  canDecide: Boolean!
+  canPay: Boolean!
+  createdAt: DateTime!
+  lines: [ExpenseLine!]!
+  actions: [ExpenseAction!]!
+}
+
+type ExpenseClaimPayload {
+  claim: ExpenseClaim
+  errors: [FieldError!]!
+}
+
+type ExpenseLine {
+  id: ID!
+  categoryId: ID!
+  categoryName: String!
+  date: Date!
+  description: String!
+  amount: Decimal!
+  distanceKm: Decimal
+  receiptName: String!
+  receiptUrl: String
+  flags: [String!]!
+}
+
+type ExpenseSettings {
+  enabled: Boolean!
+  managerApproval: Boolean!
+  financeApproval: Boolean!
+  receiptOver: Decimal
+  maxAgeDays: Int!
+  payVia: String!
+}
+
+input ExpenseSettingsInput {
+  enabled: Boolean!
+  managerApproval: Boolean! = true
+  financeApproval: Boolean! = true
+  receiptOver: Decimal = "0"
+  maxAgeDays: Int! = 90
+  payVia: String! = "payroll"
+}
+
+type Feedback {
+  id: ID!
+  giverId: ID!
+  giverName: String!
+  recipientId: ID!
+  recipientName: String!
+  body: String!
+  private: Boolean!
+  mine: Boolean!
+  createdAt: DateTime!
+}
+
+type FeedbackPayload {
+  feedback: Feedback
+  errors: [FieldError!]!
+}
+
 type FieldError {
   field: String
   message: String!
@@ -968,6 +1131,58 @@ enum Gender {
   NON_BINARY
   OTHER
   UNDISCLOSED
+}
+
+type Goal {
+  id: ID!
+  title: String!
+  description: String!
+  employeeId: ID
+  employeeName: String
+  parentId: ID
+  parentTitle: String
+  startDate: Date
+  dueDate: Date
+  progress: Int!
+  status: String!
+  keyResults: [KeyResult!]!
+  supporting: Int!
+  canEdit: Boolean!
+  updatedAt: DateTime!
+  updates: [GoalUpdate!]!
+}
+
+input GoalCheckInInput {
+  id: ID!
+  status: String!
+  progress: Int = null
+  note: String! = ""
+  values: [KeyResultValue!] = null
+}
+
+input GoalInput {
+  id: ID = null
+  employeeId: ID = null
+  title: String!
+  description: String! = ""
+  startDate: Date = null
+  dueDate: Date = null
+  parentId: ID = null
+  keyResults: [KeyResultInput!] = null
+}
+
+type GoalPayload {
+  goal: Goal
+  errors: [FieldError!]!
+}
+
+type GoalUpdate {
+  id: ID!
+  author: String
+  progress: Int!
+  status: String!
+  note: String!
+  createdAt: DateTime!
 }
 
 type Grade {
@@ -1102,6 +1317,30 @@ type JobTitle {
 type JobTitlePayload {
   jobTitle: JobTitle
   errors: [FieldError!]!
+}
+
+type KeyResult {
+  id: ID!
+  title: String!
+  startValue: Decimal!
+  targetValue: Decimal!
+  currentValue: Decimal!
+  unit: String!
+  progress: Int!
+}
+
+input KeyResultInput {
+  id: ID = null
+  title: String!
+  startValue: Decimal! = "0"
+  targetValue: Decimal! = "100"
+  currentValue: Decimal! = "0"
+  unit: String! = ""
+}
+
+input KeyResultValue {
+  id: ID!
+  value: Decimal!
 }
 
 type LabelValue {
@@ -1301,6 +1540,7 @@ type LeaveType {
   color: String!
   isPaid: Boolean!
   tracksBalance: Boolean!
+  paidOutOnExit: Boolean!
   allowHalfDays: Boolean!
   approvalLevels: Int!
   isActive: Boolean!
@@ -1367,6 +1607,34 @@ type ListOptionPayload {
   errors: [FieldError!]!
 }
 
+type Loan {
+  id: ID!
+  employeeId: ID!
+  employeeName: String!
+  kind: String!
+  amount: Decimal!
+  instalment: Decimal!
+  firstDeduction: Date!
+  reason: String!
+  status: String!
+  outstanding: Decimal!
+  repaid: Decimal!
+}
+
+input LoanInput {
+  employeeId: ID!
+  kind: String! = "loan"
+  amount: Decimal!
+  instalment: Decimal!
+  firstDeduction: Date!
+  reason: String! = ""
+}
+
+type LoanPayload {
+  loan: Loan
+  errors: [FieldError!]!
+}
+
 type Location {
   id: ID!
   name: String!
@@ -1374,6 +1642,9 @@ type Location {
   city: String!
   country: String!
   timezone: String!
+  latitude: Decimal
+  longitude: Decimal
+  radiusM: Int
   isActive: Boolean!
   legalEntity: LegalEntity!
 }
@@ -1727,6 +1998,91 @@ type Mutation {
 
   """Delete a choice. Records that used it keep their text."""
   deleteListOption(id: ID!): Boolean!
+  savePayComponent(input: PayComponentInput!): PayComponentPayload!
+  savePayGroup(input: PayGroupInput!): PayGroupPayload!
+  savePayrollProfile(input: PayrollProfileInput!): PayrollProfilePayload!
+
+  """Put several people in a pay group (or none)."""
+  assignPayGroup(employeeIds: [ID!]!, payGroupId: ID = null): Int!
+  savePayItem(input: PayItemInput!): PayItemPayload!
+  deletePayItem(id: ID!): Boolean!
+  saveLoan(input: LoanInput!): LoanPayload!
+
+  """Stop taking repayments: written off, or repaid outside payroll."""
+  closeLoan(id: ID!, repaid: Boolean! = false): Loan!
+  createPayrollRun(payGroupId: ID!, periodStart: Date!, offCycle: Boolean! = false, note: String! = ""): PayrollRunPayload!
+  recalculatePayrollRun(id: ID!): PayrollRunPayload!
+  submitPayrollRun(id: ID!): PayrollRunPayload!
+  approvePayrollRun(id: ID!): PayrollRunPayload!
+  sendBackPayrollRun(id: ID!, note: String! = ""): PayrollRunPayload!
+  publishPayslips(id: ID!): PayrollRunPayload!
+  markPayrollPaid(id: ID!): PayrollRunPayload!
+  cancelPayrollRun(id: ID!): PayrollRunPayload!
+  clockIn(latitude: Decimal = null, longitude: Decimal = null): TimeEntryPayload!
+  clockOut(latitude: Decimal = null, longitude: Decimal = null): TimeEntryPayload!
+
+  """Add or correct someone's time (their manager or HR)."""
+  saveTimeEntry(input: TimeEntryInput!): TimeEntryPayload!
+  deleteTimeEntry(id: ID!): Boolean!
+  decideOvertime(id: ID!, approve: Boolean!, note: String! = ""): Overtime!
+  saveAttendanceSettings(input: AttendanceSettingsInput!): AttendanceSettings!
+  saveShift(input: ShiftInput!): ShiftPayload!
+
+  """Put people on a shift from a date (the roster)."""
+  assignShift(shiftId: ID!, employeeIds: [ID!]!, startDate: Date!, endDate: Date = null): Int!
+  saveReviewTemplate(input: ReviewTemplateInput!): ReviewTemplatePayload!
+  deleteReviewTemplate(id: ID!): Boolean!
+  saveReviewCycle(input: ReviewCycleInput!): ReviewCyclePayload!
+  deleteReviewCycle(id: ID!): Boolean!
+  launchReviewCycle(id: ID!): ReviewCyclePayload!
+  closeReviewCycle(id: ID!): ReviewCyclePayload!
+
+  """Save your answers; submit to finish (you cannot change them after)."""
+  saveReviewResponse(id: ID!, answers: JSON!, submit: Boolean! = false): ReviewResponsePayload!
+  declinePeerReview(id: ID!): Boolean!
+
+  """Ask colleagues for a peer review of someone (their manager or HR)."""
+  requestPeerReviews(reviewId: ID!, employeeIds: [ID!]!): ReviewDetail!
+  shareReview(id: ID!): ReviewDetail!
+  acknowledgeReview(id: ID!, comment: String! = ""): ReviewDetail!
+
+  """HR sets the rating after calibration (null clears it)."""
+  calibrateReview(id: ID!, rating: Int = null, note: String! = ""): ReviewSummary!
+
+  """HR picks who writes the manager review."""
+  setReviewer(reviewId: ID!, employeeId: ID!): ReviewSummary!
+  saveGoal(input: GoalInput!): GoalPayload!
+  checkInGoal(input: GoalCheckInInput!): GoalPayload!
+  deleteGoal(id: ID!): Boolean!
+  giveFeedback(recipientId: ID!, body: String!, private: Boolean! = false): FeedbackPayload!
+  deleteFeedback(id: ID!): Boolean!
+  saveOneOnOne(input: OneOnOneInput!): OneOnOnePayload!
+  deleteOneOnOne(id: ID!): Boolean!
+  saveExpenseSettings(input: ExpenseSettingsInput!): ExpenseSettings!
+  saveExpenseCategory(input: ExpenseCategoryInput!): ExpenseCategoryPayload!
+  createExpenseClaim(title: String!): ExpenseClaimPayload!
+  renameExpenseClaim(id: ID!, title: String!): ExpenseClaimPayload!
+  deleteExpenseLine(id: ID!): ExpenseClaimPayload!
+  submitExpenseClaim(id: ID!): ExpenseClaimPayload!
+
+  """Pull a waiting claim back to draft; a draft is deleted."""
+  withdrawExpenseClaim(id: ID!): ExpenseClaimPayload!
+
+  """approve, reject or return (back to the claimant to change)."""
+  decideExpenseClaim(id: ID!, action: String!, note: String! = ""): ExpenseClaimPayload!
+
+  """Record that approved claims were paid outside payroll."""
+  markExpenseClaimsPaid(ids: [ID!]!, reference: String! = ""): Int!
+}
+
+type MyAttendance {
+  enabled: Boolean!
+  clockedIn: TimeEntry
+  shift: String!
+  shiftStart: String
+  shiftEnd: String
+  geofenced: Boolean!
+  days: [AttendanceDay!]!
 }
 
 input MyDetailsInput {
@@ -1824,6 +2180,46 @@ type OnboardingSummary {
   starting: [StartGroup!]!
 }
 
+type OneOnOne {
+  id: ID!
+  managerId: ID!
+  managerName: String!
+  employeeId: ID!
+  employeeName: String!
+  date: Date!
+  agenda: String!
+  notes: String!
+  privateNotes: String
+  actionItems: JSON!
+  myRole: String!
+}
+
+input OneOnOneInput {
+  id: ID = null
+  employeeId: ID = null
+  date: Date!
+  agenda: String! = ""
+  notes: String! = ""
+  privateNotes: String = null
+  actionItems: JSON = null
+}
+
+type OneOnOnePayload {
+  oneOnOne: OneOnOne
+  errors: [FieldError!]!
+}
+
+type Overtime {
+  id: ID!
+  employeeId: ID!
+  employeeName: String!
+  date: Date!
+  minutes: Int!
+  status: String!
+  decidedBy: String
+  note: String!
+}
+
 enum OvertimeStatus {
   EXEMPT
   NON_EXEMPT
@@ -1834,10 +2230,94 @@ type PageInfo {
   endCursor: String
 }
 
+type PayComponent {
+  id: ID!
+  code: String!
+  name: String!
+  kind: String!
+  role: String!
+  percentOfGross: Decimal
+  taxable: Boolean!
+  pensionable: Boolean!
+  isActive: Boolean!
+}
+
+input PayComponentInput {
+  id: ID = null
+  code: String!
+  name: String!
+  kind: String! = "earning"
+  percentOfGross: Decimal = null
+  taxable: Boolean! = true
+  pensionable: Boolean! = false
+  isActive: Boolean! = true
+}
+
+type PayComponentPayload {
+  component: PayComponent
+  errors: [FieldError!]!
+}
+
 enum PayFrequency {
   ANNUAL
   MONTHLY
   HOURLY
+}
+
+type PayGroup {
+  id: ID!
+  name: String!
+  legalEntityId: ID!
+  legalEntity: String!
+  country: String!
+  currency: String!
+  frequency: String!
+  payDay: Int!
+  anchorDate: Date
+  isActive: Boolean!
+  memberCount: Int!
+  supported: Boolean!
+}
+
+input PayGroupInput {
+  id: ID = null
+  name: String!
+  legalEntityId: ID!
+  frequency: String! = "monthly"
+  payDay: Int! = 25
+  anchorDate: Date = null
+  isActive: Boolean! = true
+}
+
+type PayGroupPayload {
+  group: PayGroup
+  errors: [FieldError!]!
+}
+
+type PayItem {
+  id: ID!
+  componentId: ID!
+  component: String!
+  kind: String!
+  amount: Decimal!
+  startDate: Date!
+  endDate: Date
+  note: String!
+}
+
+input PayItemInput {
+  id: ID = null
+  employeeId: ID!
+  componentId: ID!
+  amount: Decimal!
+  startDate: Date!
+  endDate: Date = null
+  note: String! = ""
+}
+
+type PayItemPayload {
+  item: PayItem
+  errors: [FieldError!]!
 }
 
 type PayRaiseData {
@@ -1869,6 +2349,99 @@ enum PayType {
   HOURLY
   COMMISSION
   CONTRACT
+}
+
+type PayrollProfile {
+  employeeId: ID!
+  payGroupId: ID
+  taxState: String!
+  pensionProvider: String!
+  socialSecurityNumber: String!
+  nhfNumber: String!
+  contributesNhf: Boolean!
+  pensionExempt: Boolean!
+  annualRent: Decimal
+  annualLifeInsurance: Decimal
+  voluntaryPensionPercent: Decimal
+}
+
+input PayrollProfileInput {
+  employeeId: ID!
+  payGroupId: ID = null
+  taxState: String! = ""
+  pensionProvider: String! = ""
+  socialSecurityNumber: String! = ""
+  nhfNumber: String! = ""
+  contributesNhf: Boolean! = true
+  pensionExempt: Boolean! = false
+  annualRent: Decimal = null
+  annualLifeInsurance: Decimal = null
+  voluntaryPensionPercent: Decimal = null
+}
+
+type PayrollProfilePayload {
+  profile: PayrollProfile
+  errors: [FieldError!]!
+}
+
+type PayrollRun {
+  id: ID!
+  payGroupId: ID!
+  payGroup: String!
+  currency: String!
+  periodStart: Date!
+  periodEnd: Date!
+  payDate: Date!
+  status: String!
+  offCycle: Boolean!
+  note: String!
+  createdBy: String
+  submittedBy: String
+  approvedBy: String
+  published: Boolean!
+  headcount: Int!
+  gross: Decimal!
+  deductions: Decimal!
+  net: Decimal!
+  employerCost: Decimal!
+  warnings: Int!
+  canApprove: Boolean!
+  payslips: [Payslip!]!
+
+  """Each person's net pay against the previous run of the group (PAY-05)."""
+  variance: [VarianceRow!]!
+}
+
+type PayrollRunPayload {
+  run: PayrollRun
+  errors: [FieldError!]!
+}
+
+type Payslip {
+  id: ID!
+  employeeId: ID!
+  employeeName: String!
+  employeeNumber: String!
+  periodStart: Date!
+  periodEnd: Date!
+  payDate: Date!
+  currency: String!
+  gross: Decimal!
+  totalDeductions: Decimal!
+  net: Decimal!
+  employerCost: Decimal!
+  lines: JSON!
+  workings: JSON!
+  warnings: [String!]!
+  daysPaid: Decimal
+  daysInPeriod: Decimal
+  rulePack: String
+}
+
+type PeerRequest {
+  id: ID!
+  name: String!
+  status: String!
 }
 
 type PendingChange {
@@ -1914,6 +2487,13 @@ type PeopleStats {
   onProbation: Int!
   awayToday: Int!
   pendingLeaveRequests: Int!
+}
+
+type PerformancePerson {
+  id: ID!
+  name: String!
+  jobTitle: String
+  direct: Boolean!
 }
 
 type PermissionInfo {
@@ -2239,6 +2819,91 @@ type Query {
   Pay and job changes waiting for you, and (for HR) every change still waiting.
   """
   pendingChanges(includeDecided: Boolean! = false): [PendingChange!]!
+  payComponents: [PayComponent!]!
+  payGroups: [PayGroup!]!
+
+  """Statutory rules the payroll uses, newest first."""
+  rulePacks: [RulePack!]!
+  payrollProfile(employeeId: ID!): PayrollProfile!
+
+  """Everyone in scope with their pay group, for assigning groups in bulk."""
+  payrollPeople: [PayrollProfile!]!
+  payItems(employeeId: ID!): [PayItem!]!
+  payrollRuns: [PayrollRun!]!
+  payrollRun(id: ID!): PayrollRun!
+
+  """Loans and salary advances in scope, being repaid first."""
+  loans(employeeId: ID = null): [Loan!]!
+
+  """Your own loans and advances."""
+  myLoans: [Loan!]!
+
+  """Your own published payslips, newest first."""
+  myPayslips: [Payslip!]!
+
+  """Your clock, today's shift and recent days."""
+  myAttendance(days: Int! = 7): MyAttendance!
+
+  """
+  Who is in, late, absent or away on a day, among the people you look after.
+  """
+  attendanceBoard(date: Date = null): [BoardRow!]!
+
+  """One person's days, for a manager or HR."""
+  attendanceDays(employeeId: ID!, start: Date!, end: Date!): [AttendanceDay!]!
+
+  """Overtime waiting for your decision."""
+  overtimeToDecide: [Overtime!]!
+  attendanceSettings: AttendanceSettings!
+  shifts: [Shift!]!
+  reviewTemplates: [ReviewTemplate!]!
+  reviewCycles: [ReviewCycle!]!
+  reviewCycle(id: ID!): ReviewCycle!
+
+  """Every review in a cycle, for HR (within their scope)."""
+  cycleReviews(cycleId: ID!): [ReviewSummary!]!
+
+  """Reviews you are asked to write, and your own reviews."""
+  myReviews: [ReviewSummary!]!
+
+  """Reviews of everyone below you in the reporting line."""
+  teamReviews: [ReviewSummary!]!
+  review(id: ID!): ReviewDetail!
+
+  """Company goals, or one person's goals."""
+  goals(employeeId: ID = null, includeDone: Boolean! = true): [Goal!]!
+
+  """Goals of everyone below you, or for HR everyone in scope."""
+  teamGoals: [Goal!]!
+
+  """
+  Goals a person's goal can support: company goals and their managers' goals.
+  """
+  alignableGoals(employeeId: ID = null): [Goal!]!
+  goal(id: ID!): Goal!
+
+  """
+  Feedback you received or gave; with employeeId, everything you may see about that person.
+  """
+  feedback(employeeId: ID = null): [Feedback!]!
+
+  """Your one-to-ones, as a manager or with your manager."""
+  oneOnOnes(employeeId: ID = null): [OneOnOne!]!
+
+  """
+  People below you (direct reports first), for goals, feedback and one-to-ones.
+  """
+  myReports: [PerformancePerson!]!
+  expenseSettings: ExpenseSettings!
+  expenseCategories(includeInactive: Boolean! = false): [ExpenseCategory!]!
+  myExpenseClaims: [ExpenseClaim!]!
+  expenseClaim(id: ID!): ExpenseClaim!
+
+  """Claims waiting for your decision."""
+  expensesToApprove: [ExpenseClaim!]!
+
+  """Every claim (finance), or your team's claims (managers)."""
+  expenseClaims(status: String = null, start: Date = null, end: Date = null, search: String! = ""): [ExpenseClaim!]!
 }
 
 type RecoveryCodesPayload {
@@ -2332,6 +2997,125 @@ input RequestLeaveInput {
   employeeId: ID = null
 }
 
+type ReviewCycle {
+  id: ID!
+  name: String!
+  kind: String!
+  status: String!
+  templateId: ID!
+  templateName: String!
+  periodStart: Date!
+  periodEnd: Date!
+  selfDue: Date
+  managerDue: Date
+  includeSelf: Boolean!
+  includePeers: Boolean!
+  departmentIds: [ID!]!
+  employeeIds: [ID!]!
+  launchedAt: DateTime
+  closedAt: DateTime
+  people: Int!
+  selfDone: Int!
+  managerDone: Int!
+  shared: Int!
+}
+
+input ReviewCycleInput {
+  id: ID = null
+  name: String!
+  kind: String! = "annual"
+  templateId: ID!
+  periodStart: Date!
+  periodEnd: Date!
+  selfDue: Date = null
+  managerDue: Date = null
+  includeSelf: Boolean! = true
+  includePeers: Boolean! = false
+  departmentIds: [ID!] = null
+  employeeIds: [ID!] = null
+}
+
+type ReviewCyclePayload {
+  cycle: ReviewCycle
+  errors: [FieldError!]!
+}
+
+type ReviewDetail {
+  review: ReviewSummary!
+  questions: JSON!
+  responses: [ReviewResponse!]!
+  peers: [PeerRequest!]!
+  sharedAt: DateTime
+  acknowledgedAt: DateTime
+  employeeComment: String!
+  periodStart: Date!
+  periodEnd: Date!
+  includePeers: Boolean!
+  canManage: Boolean!
+  canCalibrate: Boolean!
+  isEmployee: Boolean!
+}
+
+type ReviewResponse {
+  id: ID!
+  role: String!
+  authorId: ID!
+  authorName: String!
+  answers: JSON!
+  submittedAt: DateTime
+  declinedAt: DateTime
+  mine: Boolean!
+}
+
+type ReviewResponsePayload {
+  response: ReviewResponse
+  errors: [FieldError!]!
+}
+
+type ReviewSummary {
+  id: ID!
+  cycleId: ID!
+  cycleName: String!
+  cycleStatus: String!
+  employeeId: ID!
+  employeeName: String!
+  department: String
+  managerName: String
+  status: String!
+  overallRating: Int
+  calibratedRating: Int
+  calibrationNote: String!
+  scale: [String!]!
+  myRole: String
+  myResponseId: ID
+  myResponseDone: Boolean!
+  due: Date
+  selfDone: Boolean!
+  managerDone: Boolean!
+}
+
+type ReviewTemplate {
+  id: ID!
+  name: String!
+  questions: JSON!
+  scale: [String!]!
+  isActive: Boolean!
+  cycles: Int!
+}
+
+input ReviewTemplateInput {
+  id: ID = null
+  name: String!
+  questions: JSON!
+  scale: [String!]!
+  isActive: Boolean! = true
+}
+
+type ReviewTemplatePayload {
+  template: ReviewTemplate
+  errors: [FieldError!]!
+}
+
 type Role {
   id: ID!
   code: String!
@@ -2355,6 +3139,15 @@ enum RoleScope {
   ALL
   TEAM
   DIRECT
+}
+
+type RulePack {
+  id: ID!
+  country: String!
+  effectiveFrom: Date!
+  name: String!
+  data: JSON!
+  source: String!
 }
 
 input SaveBenefitPlanInput {
@@ -2471,6 +3264,7 @@ input SaveLeaveTypeInput {
   color: String
   isPaid: Boolean
   tracksBalance: Boolean
+  paidOutOnExit: Boolean
   allowHalfDays: Boolean
   approvalLevels: Int
   isActive: Boolean
@@ -2493,6 +3287,9 @@ input SaveLocationInput {
   city: String
   country: String
   timezone: String
+  latitude: Decimal
+  longitude: Decimal
+  radiusM: Int
   isActive: Boolean
 }
 
@@ -2546,6 +3343,34 @@ input SetPasswordInput {
 
 type SetPasswordPayload {
   ok: Boolean!
+  errors: [FieldError!]!
+}
+
+type Shift {
+  id: ID!
+  name: String!
+  start: String!
+  end: String!
+  breakMinutes: Int!
+  weekdays: [Int!]!
+  isDefault: Boolean!
+  isActive: Boolean!
+  people: Int!
+}
+
+input ShiftInput {
+  id: ID = null
+  name: String!
+  start: String!
+  end: String!
+  breakMinutes: Int! = 60
+  weekdays: [Int!]! = [0, 1, 2, 3, 4]
+  isDefault: Boolean! = false
+  isActive: Boolean! = true
+}
+
+type ShiftPayload {
+  shift: Shift
   errors: [FieldError!]!
 }
 
@@ -2674,6 +3499,8 @@ type TenantPublic {
   employeesEditOwnPhoto: Boolean!
   expandedGender: Boolean!
   employeeUploads: Boolean!
+  attendanceEnabled: Boolean!
+  expensesEnabled: Boolean!
 }
 
 type TenureStep {
@@ -2690,6 +3517,31 @@ enum TerminationKind {
   VOLUNTARY
   INVOLUNTARY
   OTHER
+}
+
+type TimeEntry {
+  id: ID!
+  date: Date!
+  clockIn: DateTime!
+  clockOut: DateTime
+  minutes: Int!
+  source: String!
+  flags: [String!]!
+  note: String!
+}
+
+input TimeEntryInput {
+  id: ID = null
+  employeeId: ID!
+  date: Date!
+  clockIn: DateTime!
+  clockOut: DateTime = null
+  note: String! = ""
+}
+
+type TimeEntryPayload {
+  entry: TimeEntry
+  errors: [FieldError!]!
 }
 
 type TimeOffUsedData {
@@ -2799,6 +3651,16 @@ type User {
   firstName: String!
   lastName: String!
   fullName: String!
+}
+
+type VarianceRow {
+  employeeId: ID!
+  employeeName: String!
+  net: Decimal!
+  previous: Decimal
+  change: Decimal
+  percent: Decimal
+  flag: String!
 }
 
 type ViewAs {

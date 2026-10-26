@@ -10,4 +10,9 @@ export const PERMS = {
   auditView: "audit.view",
   leaveManage: "leave.manage",
   documentsManage: "documents.manage",
+  payrollManage: "payroll.manage",
+  payrollApprove: "payroll.approve",
+  attendanceManage: "attendance.manage",
+  performanceManage: "performance.manage",
+  expensesManage: "expenses.manage",
 } as const;

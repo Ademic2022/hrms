@@ -10,7 +10,7 @@ import { initials } from "@/lib/format";
 import { PERMS } from "@/lib/permissions";
 import { useSession, type Tenant } from "@/lib/session";
 
-import { IconCalendarCheck, IconChart, IconCheck, IconClose, IconFile, IconHome, IconLogout, IconMenu, IconSettings, IconUser, IconUsers } from "./icons";
+import { IconCalendarCheck, IconChart, IconCheck, IconClock, IconClose, IconFile, IconHome, IconLogout, IconMenu, IconReceipt, IconSettings, IconStar, IconUser, IconUsers, IconWallet } from "./icons";
 import { NotificationBell } from "./Notifications";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { AREAS } from "@/components/settings/areas";
@@ -118,6 +118,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       items: [
         { href: "/home", label: "Home", show: true, icon: IconHome },
         { href: profileHref ?? "", label: "My profile", show: !!profileHref, icon: IconUser },
+        { href: "/payslips", label: "My payslips", show: !!me.employee, icon: IconReceipt },
       ],
     },
     {
@@ -130,6 +131,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           href: "/reports", label: "Reports", icon: IconChart,
           show: can(PERMS.employeesView, PERMS.leaveManage, PERMS.compensationView),
         },
+        { href: "/performance", label: "Performance", show: !!me.employee || can(PERMS.performanceManage), icon: IconStar },
+        { href: "/expenses", label: "Expenses", show: Boolean(tenant?.expensesEnabled) || can(PERMS.expensesManage), icon: IconReceipt },
+        { href: "/payroll", label: "Payroll", show: can(PERMS.payrollManage, PERMS.payrollApprove), icon: IconWallet },
         // Company files for everyone (HR also finds employee documents there).
         { href: "/files", label: "Files", show: true, icon: IconFile },
       ],
@@ -141,6 +145,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         {
           href: "/leave/approvals", label: "Approvals", icon: IconCheck, count: waitingCount,
           show: waitingCount > 0 || can(PERMS.leaveManage) || me.roles.includes("manager"),
+        },
+        {
+          href: "/attendance", label: "Attendance", icon: IconClock,
+          show: Boolean(tenant?.attendanceEnabled) || can(PERMS.attendanceManage),
         },
         { href: "/leave/calendar", label: "Leave calendar", show: !!me.employee || can(PERMS.leaveManage), icon: IconCalendarCheck },
       ],
@@ -232,7 +240,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[256px_1fr]">
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:p-2">Skip to content</a>
-      <aside className="sticky top-0 hidden h-screen border-r border-line bg-surface lg:block">{sidebar}</aside>
+      {/* Sticky makes its own stacking layer; lift it over page content (org chart lists use z-40) so the bell menu is not covered. Dialogs sit at z-50. */}
+      <aside className="sticky top-0 z-[45] hidden h-screen border-r border-line bg-surface lg:block">{sidebar}</aside>
 
       {drawerOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">

@@ -1,5 +1,5 @@
 import {
-  faAddressBook, faBell, faClockRotateLeft, faBuilding, faCalendarDays, faClipboardList, faGraduationCap, faHeartPulse, faIdCard, faListCheck, faSitemap,
+  faAddressBook, faBell, faBusinessTime, faClockRotateLeft, faMoneyCheckDollar, faBuilding, faCalendarDays, faChartLine, faClipboardList, faReceipt, faGraduationCap, faHeartPulse, faIdCard, faListCheck, faSitemap,
   faUserLock, type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -52,6 +52,19 @@ export const AREAS: SettingsArea[] = [
   {
     href: "/settings/time-off", label: "Time off", icon: faCalendarDays, permission: PERMS.leaveManage,
     tabs: [{ key: "types", label: "Leave types" }, { key: "policies", label: "Policies" }, { key: "holidays", label: "Public holidays" }],
+  },
+  {
+    href: "/settings/attendance", label: "Attendance", icon: faBusinessTime, permission: PERMS.attendanceManage,
+    tabs: [{ key: "rules", label: "Rules" }, { key: "shifts", label: "Shifts and roster" }],
+  },
+  { href: "/settings/performance", label: "Performance", icon: faChartLine, permission: PERMS.performanceManage },
+  {
+    href: "/settings/expenses", label: "Expenses", icon: faReceipt, permission: PERMS.expensesManage,
+    tabs: [{ key: "rules", label: "Rules" }, { key: "categories", label: "Categories" }],
+  },
+  {
+    href: "/settings/payroll", label: "Payroll", icon: faMoneyCheckDollar, permission: PERMS.payrollManage,
+    tabs: [{ key: "groups", label: "Pay groups" }, { key: "components", label: "Pay components" }, { key: "rules", label: "Tax and contributions" }],
   },
   { href: "/settings/benefits", label: "Benefits", icon: faHeartPulse, permission: PERMS.employeesManage },
   {

@@ -22,7 +22,7 @@ import { useSession } from "@/lib/session";
 
 const LeaveSetupDocument = graphql(`
   query LeaveSetup($year: Int!) {
-    leaveTypes(includeInactive: true) { id name code color isPaid tracksBalance allowHalfDays approvalLevels isActive }
+    leaveTypes(includeInactive: true) { id name code color isPaid tracksBalance paidOutOnExit allowHalfDays approvalLevels isActive }
     leavePolicies {
       id name daysPerYear accrual proRata startsOn carryOverMax carryOverExpiryMonths employmentType isActive
       leaveType { id name color }
@@ -99,7 +99,7 @@ function LeaveTypeDialog({ row, onClose, onSaved }: { row: LeaveTypeRow | null; 
   const f = useFormState();
   const [v, setV] = useState({
     name: row?.name ?? "", code: row?.code ?? "", color: row?.color ?? COLORS[0], isPaid: row?.isPaid ?? true,
-    tracksBalance: row?.tracksBalance ?? true, allowHalfDays: row?.allowHalfDays ?? true,
+    tracksBalance: row?.tracksBalance ?? true, paidOutOnExit: row?.paidOutOnExit ?? false, allowHalfDays: row?.allowHalfDays ?? true,
     approvalLevels: String(row?.approvalLevels ?? 1), isActive: row?.isActive ?? true,
   });
   const set = <K extends keyof typeof v>(k: K, value: (typeof v)[K]) => setV((s) => ({ ...s, [k]: value }));
@@ -151,6 +151,10 @@ function LeaveTypeDialog({ row, onClose, onSaved }: { row: LeaveTypeRow | null; 
           <Checkbox label="Keeps a balance" description="Days are earned under a policy and drawn down. Turn off for leave granted case by case."
             checked={v.tracksBalance} onChange={(c) => set("tracksBalance", c)} />
           <Checkbox label="Paid" checked={v.isPaid} onChange={(c) => set("isPaid", c)} />
+          {v.tracksBalance && v.isPaid && (
+            <Checkbox label="Pay out unused days when someone leaves" description="Added to their last payslip as part of the final settlement."
+              checked={v.paidOutOnExit} onChange={(c) => set("paidOutOnExit", c)} />
+          )}
           <Checkbox label="Half days allowed" checked={v.allowHalfDays} onChange={(c) => set("allowHalfDays", c)} />
           {row && <Checkbox label="Active" description="Inactive types cannot be requested. History is kept." checked={v.isActive} onChange={(c) => set("isActive", c)} />}
         </div>

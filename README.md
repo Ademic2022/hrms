@@ -50,8 +50,13 @@ npm test
 | `/employees/[id]` | Profile with customizable tabs; snapshot panel opens from anywhere |
 | `/leave`, `/leave/approvals`, `/leave/calendar` | Time off, approvals inbox (leave plus pay/job changes), calendar |
 | `/reports` | Recent, standard and custom reports |
+| `/payroll`, `/payroll/runs/[id]` | Pay runs, payroll people, loans and advances |
+| `/payslips` | My payslips and loans |
+| `/attendance` | My time (clock in and out), team board, overtime approvals |
+| `/performance`, `/performance/reviews/[id]`, `/performance/cycles/[id]` | Goals, reviews, feedback, one-to-ones; HR review cycles and calibration |
+| `/expenses`, `/expenses/[id]` | Expense claims, approvals, finance payments and exports |
 | `/files` | Company files and (for HR) employee documents |
-| `/settings/*` | Company, users and access levels, approvals, email alerts, directory, job organization, employee fields, time off, benefits, onboarding, training |
+| `/settings/*` | Company, users and access levels, approvals, email alerts, directory, job organization, employee fields, time off, benefits, onboarding, training, payroll, attendance, performance, expenses, audit log |
 | `/account` | Password, two-step sign-in, calendar links |
 
 Settings areas and their sections are listed in `src/components/settings/areas.ts`.

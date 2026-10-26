@@ -21,7 +21,7 @@ import { useSession, type Tenant } from "@/lib/session";
 const OrganizationDocument = graphql(`
   query Organization {
     legalEntities { id name registrationNumber country currency isActive }
-    locations { id name address city country timezone isActive legalEntity { id name } }
+    locations { id name address city country timezone latitude longitude radiusM isActive legalEntity { id name } }
     departments { id name code isActive legalEntity { id name } parent { id name } head { id fullName } }
     jobTitles { id name description isActive }
     grades { id name rank isActive payMin payMid payMax }
@@ -118,6 +118,9 @@ const KINDS: Record<Kind, { label: string; singular: string; intro: string; fiel
       { name: "country", label: "Country code", required: true, upper: true, maxLength: 2, placeholder: "NG" },
       { name: "timezone", label: "Time zone", placeholder: "Africa/Lagos", hint: "An IANA name, such as Africa/Lagos." },
       { name: "address", label: "Address", type: "textarea", wide: true },
+      { name: "latitude", label: "Latitude", type: "money", placeholder: "6.4541", hint: "For attendance: where the site is." },
+      { name: "longitude", label: "Longitude", type: "money", placeholder: "3.3947" },
+      { name: "radiusM", label: "Clock-in radius (metres)", type: "number", hint: "Clocking in further away is flagged. 0 or empty: no check." },
     ],
   },
   jobTitles: {
