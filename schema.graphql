@@ -109,6 +109,7 @@ type AttendanceSettings {
   overtimeMultiplier: Decimal!
   payOvertime: Boolean!
   deductAbsence: Boolean!
+  timesheetsEnabled: Boolean!
 }
 
 input AttendanceSettingsInput {
@@ -119,6 +120,7 @@ input AttendanceSettingsInput {
   overtimeMultiplier: Decimal! = "1.5"
   payOvertime: Boolean! = true
   deductAbsence: Boolean! = false
+  timesheetsEnabled: Boolean! = false
 }
 
 type AuditEntry {
@@ -566,6 +568,11 @@ scalar Date
 
 """Date with time (isoformat)"""
 scalar DateTime
+
+type DayMinutes {
+  date: Date!
+  minutes: Int!
+}
 
 input DecideLeaveInput {
   id: ID!
@@ -2026,6 +2033,17 @@ type Mutation {
   deleteTimeEntry(id: ID!): Boolean!
   decideOvertime(id: ID!, approve: Boolean!, note: String! = ""): Overtime!
   saveAttendanceSettings(input: AttendanceSettingsInput!): AttendanceSettings!
+
+  """Save your hours for a week (every cell; leaving one out clears it)."""
+  saveTimesheet(weekStart: Date!, entries: [TimesheetCellInput!]!): TimesheetPayload!
+  submitTimesheet(weekStart: Date!): TimesheetPayload!
+
+  """Approve a week, or send it back with a note."""
+  decideTimesheet(id: ID!, approve: Boolean!, note: String! = ""): TimesheetPayload!
+
+  """Send an approved week back to correct it."""
+  reopenTimesheet(id: ID!, note: String! = ""): TimesheetPayload!
+  saveProject(input: ProjectInput!): ProjectPayload!
   saveShift(input: ShiftInput!): ShiftPayload!
 
   """Put people on a shift from a date (the roster)."""
@@ -2579,6 +2597,33 @@ type ProfileLayoutType {
   library: [LayoutItem!]!
 }
 
+type Project {
+  id: ID!
+  name: String!
+  code: String!
+  client: String!
+  costCentre: String!
+  billable: Boolean!
+  employeeIds: [ID!]!
+  isActive: Boolean!
+}
+
+input ProjectInput {
+  id: ID = null
+  name: String!
+  code: String! = ""
+  client: String! = ""
+  costCentre: String! = ""
+  billable: Boolean! = false
+  employeeIds: [ID!] = null
+  isActive: Boolean! = true
+}
+
+type ProjectPayload {
+  project: Project
+  errors: [FieldError!]!
+}
+
 type PublicHoliday {
   id: ID!
   name: String!
@@ -2854,6 +2899,21 @@ type Query {
 
   """Overtime waiting for your decision."""
   overtimeToDecide: [Overtime!]!
+
+  """
+  Your timesheet for the week containing a day (unsaved and empty if not started).
+  """
+  myTimesheet(weekStart: Date!): Timesheet!
+
+  """Projects you may log time to."""
+  myProjects: [Project!]!
+  projects: [Project!]!
+
+  """Submitted timesheets waiting for your approval."""
+  timesheetsToApprove: [Timesheet!]!
+
+  """A week's timesheets for the people you look after: who has submitted."""
+  teamTimesheets(weekStart: Date!): [Timesheet!]!
   attendanceSettings: AttendanceSettings!
   shifts: [Shift!]!
   reviewTemplates: [ReviewTemplate!]!
@@ -3501,6 +3561,7 @@ type TenantPublic {
   employeeUploads: Boolean!
   attendanceEnabled: Boolean!
   expensesEnabled: Boolean!
+  timesheetsEnabled: Boolean!
 }
 
 type TenureStep {
@@ -3553,6 +3614,43 @@ type TimeOffUsedData {
 
   """People who took this leave in the period."""
   people: Int!
+}
+
+type Timesheet {
+  id: ID
+  employeeId: ID!
+  employeeName: String!
+  weekStart: Date!
+  status: String!
+  submittedAt: DateTime
+  decidedBy: String
+  decidedAt: DateTime
+  note: String!
+  totalMinutes: Int!
+  entries: [TimesheetCell!]!
+  clocked: [DayMinutes!]!
+  mine: Boolean!
+  canApprove: Boolean!
+}
+
+type TimesheetCell {
+  projectId: ID!
+  projectName: String!
+  date: Date!
+  minutes: Int!
+  note: String!
+}
+
+input TimesheetCellInput {
+  projectId: ID!
+  date: Date!
+  minutes: Int!
+  note: String! = ""
+}
+
+type TimesheetPayload {
+  timesheet: Timesheet
+  errors: [FieldError!]!
 }
 
 type TrainingCourse {

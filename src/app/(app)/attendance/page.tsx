@@ -13,6 +13,7 @@ import { errorMessage } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { PERMS } from "@/lib/permissions";
 import { useSession } from "@/lib/session";
+import { MyTimesheet, TeamTimesheets, TimesheetApprovals } from "@/components/attendance/Timesheet";
 
 const MineDocument = graphql(`
   query MyAttendance {
@@ -276,22 +277,31 @@ function Approvals() {
   );
 }
 
+type Tab = "mine" | "timesheet" | "team" | "approvals";
+
 function Attendance() {
-  const { can, me } = useSession();
+  const { can, me, tenant } = useSession();
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const lead = can(PERMS.attendanceManage) || me?.roles.includes("manager");
-  const asked = params.get("tab");
-  const tab = asked === "team" || asked === "approvals" ? (lead ? asked : "mine") : me?.employee ? "mine" : "team";
+  const manage = can(PERMS.attendanceManage);
+  const lead = manage || me?.roles.includes("manager");
+  const clocking = Boolean(tenant?.attendanceEnabled);
+  const sheets = Boolean(tenant?.timesheetsEnabled);
+  const tabs: { key: Tab; label: string }[] = [
+    ...(me?.employee && (clocking || !sheets) ? [{ key: "mine" as const, label: "My time" }] : []),
+    ...(me?.employee && sheets ? [{ key: "timesheet" as const, label: "Timesheet" }] : []),
+    ...(lead ? [{ key: "team" as const, label: "Team" }, { key: "approvals" as const, label: "Approvals" }] : []),
+  ];
+  const asked = params.get("tab") as Tab | null;
+  const tab = tabs.some((t) => t.key === asked) ? asked! : tabs[0]?.key ?? "team";
   return (
     <>
-      <PageHeader title="Attendance" subtitle="Clock in and out, and see the hours you and your team work." />
-      <Tabs value={tab} onChange={(t) => router.replace(`${pathname}?tab=${t}`)} tabs={[
-        ...(me?.employee ? [{ key: "mine" as const, label: "My time" }] : []),
-        ...(lead ? [{ key: "team" as const, label: "Team" }, { key: "approvals" as const, label: "Overtime" }] : []),
-      ]} />
-      {tab === "mine" ? <MyTime /> : tab === "team" ? <Team /> : <Approvals />}
+      <PageHeader title="Attendance" subtitle="Clock in and out, log hours against projects, and see the hours you and your team work." />
+      <Tabs value={tab} onChange={(t) => router.replace(`${pathname}?tab=${t}`)} tabs={tabs} />
+      {tab === "mine" ? <MyTime /> : tab === "timesheet" ? <MyTimesheet initialWeek={params.get("week")} />
+        : tab === "team" ? <div className="grid gap-5">{(clocking || !sheets) && <Team />}{sheets && <TeamTimesheets canExport={manage} />}</div>
+        : <div className="grid gap-5">{(clocking || !sheets) && <Approvals />}{sheets && <TimesheetApprovals />}</div>}
     </>
   );
 }

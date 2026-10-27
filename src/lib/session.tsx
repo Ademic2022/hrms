@@ -21,7 +21,7 @@ export const MeDocument = graphql(`
     }
     tenant {
       name slug primaryColor country currency logoUrl
-      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled
+      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled timesheetsEnabled
     }
   }
 `);

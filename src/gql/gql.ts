@@ -115,7 +115,7 @@ type Documents = {
     "mutation SendEmailAlertNow($id: ID!) { sendEmailAlertNow(id: $id) }": typeof types.SendEmailAlertNowDocument,
     "\n  query ApprovalsSettings {\n    approvalChains { kind name enabled steps }\n    approvalStepTypes { key label }\n    roles { code name }\n    members { id fullName email isActive }\n  }\n": typeof types.ApprovalsSettingsDocument,
     "\n  mutation SaveApprovalChain($kind: String!, $enabled: Boolean!, $steps: JSON!) {\n    saveApprovalChain(kind: $kind, enabled: $enabled, steps: $steps) { chain { kind } errors { field message } }\n  }\n": typeof types.SaveApprovalChainDocument,
-    "\n  query AttendanceSetup {\n    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence }\n    shifts { id name start end breakMinutes weekdays isDefault isActive people }\n    employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }\n  }\n": typeof types.AttendanceSetupDocument,
+    "\n  query AttendanceSetup {\n    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence timesheetsEnabled }\n    shifts { id name start end breakMinutes weekdays isDefault isActive people }\n    employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }\n  }\n": typeof types.AttendanceSetupDocument,
     "\n  mutation SaveAttendanceSettings($input: AttendanceSettingsInput!) { saveAttendanceSettings(input: $input) { enabled } }\n": typeof types.SaveAttendanceSettingsDocument,
     "\n  mutation SaveShift($input: ShiftInput!) { saveShift(input: $input) { shift { id } errors { field message } } }\n": typeof types.SaveShiftDocument,
     "\n  mutation AssignShift($shift: ID!, $ids: [ID!]!, $start: Date!) { assignShift(shiftId: $shift, employeeIds: $ids, startDate: $start) }\n": typeof types.AssignShiftDocument,
@@ -178,6 +178,16 @@ type Documents = {
     "\n  query PendingPayJobChanges {\n    pendingChanges { id kind kindName employeeId employeeName summary status step stepCount requestedBy createdAt canDecide canCancel }\n  }\n": typeof types.PendingPayJobChangesDocument,
     "\n  mutation DecidePendingChange($id: ID!, $approve: Boolean!, $note: String) {\n    decidePendingChange(id: $id, approve: $approve, note: $note) { change { id status } errors { message } }\n  }\n": typeof types.DecidePendingChangeDocument,
     "\n  mutation CancelPendingChange($id: ID!) {\n    cancelPendingChange(id: $id) { change { id status } errors { message } }\n  }\n": typeof types.CancelPendingChangeDocument,
+    "\n  query Projects { projects { id name code client costCentre billable employeeIds isActive } }\n": typeof types.ProjectsDocument,
+    "\n  mutation SaveProject($input: ProjectInput!) { saveProject(input: $input) { project { id } errors { field message } } }\n": typeof types.SaveProjectDocument,
+    "\n  fragment TimesheetFields on Timesheet {\n    id employeeId employeeName weekStart status submittedAt decidedBy decidedAt note totalMinutes mine canApprove\n    entries { projectId projectName date minutes note }\n    clocked { date minutes }\n  }\n": typeof types.TimesheetFieldsFragmentDoc,
+    "\n  query MyTimesheet($week: Date!) { myTimesheet(weekStart: $week) { ...TimesheetFields } myProjects { id name code client } }\n": typeof types.MyTimesheetDocument,
+    "\n  mutation SaveTimesheet($week: Date!, $entries: [TimesheetCellInput!]!) {\n    saveTimesheet(weekStart: $week, entries: $entries) { timesheet { ...TimesheetFields } errors { field message } }\n  }\n": typeof types.SaveTimesheetDocument,
+    "\n  mutation SubmitTimesheet($week: Date!) { submitTimesheet(weekStart: $week) { timesheet { ...TimesheetFields } errors { message } } }\n": typeof types.SubmitTimesheetDocument,
+    "query TimesheetsToApprove { timesheetsToApprove { ...TimesheetFields } }": typeof types.TimesheetsToApproveDocument,
+    "query TeamTimesheets($week: Date!) { teamTimesheets(weekStart: $week) { ...TimesheetFields } }": typeof types.TeamTimesheetsDocument,
+    "\n  mutation DecideTimesheet($id: ID!, $approve: Boolean!, $note: String!) {\n    decideTimesheet(id: $id, approve: $approve, note: $note) { timesheet { id status } errors { field message } }\n  }\n": typeof types.DecideTimesheetDocument,
+    "\n  mutation ReopenTimesheet($id: ID!, $note: String!) { reopenTimesheet(id: $id, note: $note) { timesheet { id status } errors { message } } }\n": typeof types.ReopenTimesheetDocument,
     "\n  mutation EmailMyCompanies($email: String!) {\n    emailMyCompanies(email: $email)\n  }\n": typeof types.EmailMyCompaniesDocument,
     "\n  query EmployeeDocuments($employeeId: ID!) {\n    employeeDocuments(employeeId: $employeeId) {\n      id title originalName contentType size expiresOn notes uploadedBy createdAt\n      category { id name requiresExpiry employeeCanView managerCanView }\n    }\n  }\n": typeof types.EmployeeDocumentsDocument,
     "\n  query DocumentCategoryOptions {\n    documentCategories { id name requiresExpiry employeeCanView managerCanView isActive }\n  }\n": typeof types.DocumentCategoryOptionsDocument,
@@ -291,7 +301,7 @@ type Documents = {
     "\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings category favorite lastViewed }\n  }\n": typeof types.ReportCatalogDocument,
     "\n  query CustomReports {\n    customReports { id name description fields filter showing shared ownerName mine favorite lastViewed }\n  }\n": typeof types.CustomReportsDocument,
     "\n  mutation SetFavoriteReport($favorite: Boolean!, $key: String, $customId: ID) {\n    setFavoriteReport(favorite: $favorite, key: $key, customId: $customId)\n  }\n": typeof types.SetFavoriteReportDocument,
-    "\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n      viewingAs { name realName startedAt }\n    }\n    tenant {\n      name slug primaryColor country currency logoUrl\n      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled\n    }\n  }\n": typeof types.MeDocument,
+    "\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n      viewingAs { name realName startedAt }\n    }\n    tenant {\n      name slug primaryColor country currency logoUrl\n      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled timesheetsEnabled\n    }\n  }\n": typeof types.MeDocument,
 };
 const documents: Documents = {
     "\n  mutation ChangePassword($current: String!, $new: String!) {\n    changePassword(current: $current, new: $new) { ok errors { field message } }\n  }\n": types.ChangePasswordDocument,
@@ -395,7 +405,7 @@ const documents: Documents = {
     "mutation SendEmailAlertNow($id: ID!) { sendEmailAlertNow(id: $id) }": types.SendEmailAlertNowDocument,
     "\n  query ApprovalsSettings {\n    approvalChains { kind name enabled steps }\n    approvalStepTypes { key label }\n    roles { code name }\n    members { id fullName email isActive }\n  }\n": types.ApprovalsSettingsDocument,
     "\n  mutation SaveApprovalChain($kind: String!, $enabled: Boolean!, $steps: JSON!) {\n    saveApprovalChain(kind: $kind, enabled: $enabled, steps: $steps) { chain { kind } errors { field message } }\n  }\n": types.SaveApprovalChainDocument,
-    "\n  query AttendanceSetup {\n    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence }\n    shifts { id name start end breakMinutes weekdays isDefault isActive people }\n    employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }\n  }\n": types.AttendanceSetupDocument,
+    "\n  query AttendanceSetup {\n    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence timesheetsEnabled }\n    shifts { id name start end breakMinutes weekdays isDefault isActive people }\n    employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }\n  }\n": types.AttendanceSetupDocument,
     "\n  mutation SaveAttendanceSettings($input: AttendanceSettingsInput!) { saveAttendanceSettings(input: $input) { enabled } }\n": types.SaveAttendanceSettingsDocument,
     "\n  mutation SaveShift($input: ShiftInput!) { saveShift(input: $input) { shift { id } errors { field message } } }\n": types.SaveShiftDocument,
     "\n  mutation AssignShift($shift: ID!, $ids: [ID!]!, $start: Date!) { assignShift(shiftId: $shift, employeeIds: $ids, startDate: $start) }\n": types.AssignShiftDocument,
@@ -458,6 +468,16 @@ const documents: Documents = {
     "\n  query PendingPayJobChanges {\n    pendingChanges { id kind kindName employeeId employeeName summary status step stepCount requestedBy createdAt canDecide canCancel }\n  }\n": types.PendingPayJobChangesDocument,
     "\n  mutation DecidePendingChange($id: ID!, $approve: Boolean!, $note: String) {\n    decidePendingChange(id: $id, approve: $approve, note: $note) { change { id status } errors { message } }\n  }\n": types.DecidePendingChangeDocument,
     "\n  mutation CancelPendingChange($id: ID!) {\n    cancelPendingChange(id: $id) { change { id status } errors { message } }\n  }\n": types.CancelPendingChangeDocument,
+    "\n  query Projects { projects { id name code client costCentre billable employeeIds isActive } }\n": types.ProjectsDocument,
+    "\n  mutation SaveProject($input: ProjectInput!) { saveProject(input: $input) { project { id } errors { field message } } }\n": types.SaveProjectDocument,
+    "\n  fragment TimesheetFields on Timesheet {\n    id employeeId employeeName weekStart status submittedAt decidedBy decidedAt note totalMinutes mine canApprove\n    entries { projectId projectName date minutes note }\n    clocked { date minutes }\n  }\n": types.TimesheetFieldsFragmentDoc,
+    "\n  query MyTimesheet($week: Date!) { myTimesheet(weekStart: $week) { ...TimesheetFields } myProjects { id name code client } }\n": types.MyTimesheetDocument,
+    "\n  mutation SaveTimesheet($week: Date!, $entries: [TimesheetCellInput!]!) {\n    saveTimesheet(weekStart: $week, entries: $entries) { timesheet { ...TimesheetFields } errors { field message } }\n  }\n": types.SaveTimesheetDocument,
+    "\n  mutation SubmitTimesheet($week: Date!) { submitTimesheet(weekStart: $week) { timesheet { ...TimesheetFields } errors { message } } }\n": types.SubmitTimesheetDocument,
+    "query TimesheetsToApprove { timesheetsToApprove { ...TimesheetFields } }": types.TimesheetsToApproveDocument,
+    "query TeamTimesheets($week: Date!) { teamTimesheets(weekStart: $week) { ...TimesheetFields } }": types.TeamTimesheetsDocument,
+    "\n  mutation DecideTimesheet($id: ID!, $approve: Boolean!, $note: String!) {\n    decideTimesheet(id: $id, approve: $approve, note: $note) { timesheet { id status } errors { field message } }\n  }\n": types.DecideTimesheetDocument,
+    "\n  mutation ReopenTimesheet($id: ID!, $note: String!) { reopenTimesheet(id: $id, note: $note) { timesheet { id status } errors { message } } }\n": types.ReopenTimesheetDocument,
     "\n  mutation EmailMyCompanies($email: String!) {\n    emailMyCompanies(email: $email)\n  }\n": types.EmailMyCompaniesDocument,
     "\n  query EmployeeDocuments($employeeId: ID!) {\n    employeeDocuments(employeeId: $employeeId) {\n      id title originalName contentType size expiresOn notes uploadedBy createdAt\n      category { id name requiresExpiry employeeCanView managerCanView }\n    }\n  }\n": types.EmployeeDocumentsDocument,
     "\n  query DocumentCategoryOptions {\n    documentCategories { id name requiresExpiry employeeCanView managerCanView isActive }\n  }\n": types.DocumentCategoryOptionsDocument,
@@ -571,7 +591,7 @@ const documents: Documents = {
     "\n  query ReportCatalog {\n    reportCatalog { key title description usesRange groupings category favorite lastViewed }\n  }\n": types.ReportCatalogDocument,
     "\n  query CustomReports {\n    customReports { id name description fields filter showing shared ownerName mine favorite lastViewed }\n  }\n": types.CustomReportsDocument,
     "\n  mutation SetFavoriteReport($favorite: Boolean!, $key: String, $customId: ID) {\n    setFavoriteReport(favorite: $favorite, key: $key, customId: $customId)\n  }\n": types.SetFavoriteReportDocument,
-    "\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n      viewingAs { name realName startedAt }\n    }\n    tenant {\n      name slug primaryColor country currency logoUrl\n      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled\n    }\n  }\n": types.MeDocument,
+    "\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n      viewingAs { name realName startedAt }\n    }\n    tenant {\n      name slug primaryColor country currency logoUrl\n      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled timesheetsEnabled\n    }\n  }\n": types.MeDocument,
 };
 
 /**
@@ -995,7 +1015,7 @@ export function graphql(source: "\n  mutation SaveApprovalChain($kind: String!, 
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query AttendanceSetup {\n    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence }\n    shifts { id name start end breakMinutes weekdays isDefault isActive people }\n    employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }\n  }\n"): (typeof documents)["\n  query AttendanceSetup {\n    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence }\n    shifts { id name start end breakMinutes weekdays isDefault isActive people }\n    employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }\n  }\n"];
+export function graphql(source: "\n  query AttendanceSetup {\n    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence timesheetsEnabled }\n    shifts { id name start end breakMinutes weekdays isDefault isActive people }\n    employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }\n  }\n"): (typeof documents)["\n  query AttendanceSetup {\n    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence timesheetsEnabled }\n    shifts { id name start end breakMinutes weekdays isDefault isActive people }\n    employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -1244,6 +1264,46 @@ export function graphql(source: "\n  mutation DecidePendingChange($id: ID!, $app
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation CancelPendingChange($id: ID!) {\n    cancelPendingChange(id: $id) { change { id status } errors { message } }\n  }\n"): (typeof documents)["\n  mutation CancelPendingChange($id: ID!) {\n    cancelPendingChange(id: $id) { change { id status } errors { message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Projects { projects { id name code client costCentre billable employeeIds isActive } }\n"): (typeof documents)["\n  query Projects { projects { id name code client costCentre billable employeeIds isActive } }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SaveProject($input: ProjectInput!) { saveProject(input: $input) { project { id } errors { field message } } }\n"): (typeof documents)["\n  mutation SaveProject($input: ProjectInput!) { saveProject(input: $input) { project { id } errors { field message } } }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  fragment TimesheetFields on Timesheet {\n    id employeeId employeeName weekStart status submittedAt decidedBy decidedAt note totalMinutes mine canApprove\n    entries { projectId projectName date minutes note }\n    clocked { date minutes }\n  }\n"): (typeof documents)["\n  fragment TimesheetFields on Timesheet {\n    id employeeId employeeName weekStart status submittedAt decidedBy decidedAt note totalMinutes mine canApprove\n    entries { projectId projectName date minutes note }\n    clocked { date minutes }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query MyTimesheet($week: Date!) { myTimesheet(weekStart: $week) { ...TimesheetFields } myProjects { id name code client } }\n"): (typeof documents)["\n  query MyTimesheet($week: Date!) { myTimesheet(weekStart: $week) { ...TimesheetFields } myProjects { id name code client } }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SaveTimesheet($week: Date!, $entries: [TimesheetCellInput!]!) {\n    saveTimesheet(weekStart: $week, entries: $entries) { timesheet { ...TimesheetFields } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation SaveTimesheet($week: Date!, $entries: [TimesheetCellInput!]!) {\n    saveTimesheet(weekStart: $week, entries: $entries) { timesheet { ...TimesheetFields } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SubmitTimesheet($week: Date!) { submitTimesheet(weekStart: $week) { timesheet { ...TimesheetFields } errors { message } } }\n"): (typeof documents)["\n  mutation SubmitTimesheet($week: Date!) { submitTimesheet(weekStart: $week) { timesheet { ...TimesheetFields } errors { message } } }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query TimesheetsToApprove { timesheetsToApprove { ...TimesheetFields } }"): (typeof documents)["query TimesheetsToApprove { timesheetsToApprove { ...TimesheetFields } }"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "query TeamTimesheets($week: Date!) { teamTimesheets(weekStart: $week) { ...TimesheetFields } }"): (typeof documents)["query TeamTimesheets($week: Date!) { teamTimesheets(weekStart: $week) { ...TimesheetFields } }"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DecideTimesheet($id: ID!, $approve: Boolean!, $note: String!) {\n    decideTimesheet(id: $id, approve: $approve, note: $note) { timesheet { id status } errors { field message } }\n  }\n"): (typeof documents)["\n  mutation DecideTimesheet($id: ID!, $approve: Boolean!, $note: String!) {\n    decideTimesheet(id: $id, approve: $approve, note: $note) { timesheet { id status } errors { field message } }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation ReopenTimesheet($id: ID!, $note: String!) { reopenTimesheet(id: $id, note: $note) { timesheet { id status } errors { message } } }\n"): (typeof documents)["\n  mutation ReopenTimesheet($id: ID!, $note: String!) { reopenTimesheet(id: $id, note: $note) { timesheet { id status } errors { message } } }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -1699,7 +1759,7 @@ export function graphql(source: "\n  mutation SetFavoriteReport($favorite: Boole
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
-export function graphql(source: "\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n      viewingAs { name realName startedAt }\n    }\n    tenant {\n      name slug primaryColor country currency logoUrl\n      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled\n    }\n  }\n"): (typeof documents)["\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n      viewingAs { name realName startedAt }\n    }\n    tenant {\n      name slug primaryColor country currency logoUrl\n      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled\n    }\n  }\n"];
+export function graphql(source: "\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n      viewingAs { name realName startedAt }\n    }\n    tenant {\n      name slug primaryColor country currency logoUrl\n      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled timesheetsEnabled\n    }\n  }\n"): (typeof documents)["\n  query Me {\n    me {\n      permissions\n      roles\n      user { id email fullName }\n      employee { id fullName jobTitle { name } }\n      mfaEnabled mfaSetupRequired recoveryCodesLeft\n      viewingAs { name realName startedAt }\n    }\n    tenant {\n      name slug primaryColor country currency logoUrl\n      dateFormat nameFormat showCurrencyCode employeesEditOwnPhoto expandedGender employeeUploads attendanceEnabled expensesEnabled timesheetsEnabled\n    }\n  }\n"];
 
 export function graphql(source: string) {
   return (documents as any)[source] ?? {};

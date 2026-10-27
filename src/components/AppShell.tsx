@@ -148,7 +148,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         },
         {
           href: "/attendance", label: "Attendance", icon: IconClock,
-          show: Boolean(tenant?.attendanceEnabled) || can(PERMS.attendanceManage),
+          show: Boolean(tenant?.attendanceEnabled || tenant?.timesheetsEnabled) || can(PERMS.attendanceManage),
         },
         { href: "/leave/calendar", label: "Leave calendar", show: !!me.employee || can(PERMS.leaveManage), icon: IconCalendarCheck },
       ],

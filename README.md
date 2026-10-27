@@ -52,7 +52,7 @@ npm test
 | `/reports` | Recent, standard and custom reports |
 | `/payroll`, `/payroll/runs/[id]` | Pay runs, payroll people, loans and advances |
 | `/payslips` | My payslips and loans |
-| `/attendance` | My time (clock in and out), team board, overtime approvals |
+| `/attendance` | My time (clock in and out), weekly timesheet, team board and timesheets, overtime and timesheet approvals |
 | `/performance`, `/performance/reviews/[id]`, `/performance/cycles/[id]` | Goals, reviews, feedback, one-to-ones; HR review cycles and calibration |
 | `/expenses`, `/expenses/[id]` | Expense claims, approvals, finance payments and exports |
 | `/files` | Company files and (for HR) employee documents |

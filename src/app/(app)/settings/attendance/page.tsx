@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useState } from "react";
 import { useMutation, useQuery } from "urql";
 
+import { ProjectsAdmin } from "@/components/attendance/Projects";
 import { useSettingsTab } from "@/components/settings/areas";
 import { SettingsIntro } from "@/components/settings/Intro";
 import { Badge, Button, Card, Checkbox, Dialog, ErrorNote, Field, IconButton, Input, Loading, Notice, SearchInput, Table, TD, TH } from "@/components/ui";
@@ -15,7 +16,7 @@ import { useSession } from "@/lib/session";
 
 const SetupDocument = graphql(`
   query AttendanceSetup {
-    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence }
+    attendanceSettings { enabled graceMinutes requireLocation overtimeAfterMinutes overtimeMultiplier payOvertime deductAbsence timesheetsEnabled }
     shifts { id name start end breakMinutes weekdays isDefault isActive people }
     employees(first: 100, filter: { statuses: [ACTIVE, PROBATION, ON_LEAVE] }) { nodes { id fullName } }
   }
@@ -46,6 +47,8 @@ function Rules({ data, onSaved }: { data: Data; onSaved: (m: string) => void }) 
       <div className="space-y-5">
         {problem && <ErrorNote error={problem} />}
         <Checkbox label="Switch on clocking in and out" description="Adds Attendance to everyone's menu." checked={v.enabled} onChange={(c) => set("enabled", c)} />
+        <Checkbox label="Switch on weekly timesheets" description="People log hours against projects and cost centres (set them up under Projects); managers approve each week."
+          checked={v.timesheetsEnabled} onChange={(c) => set("timesheetsEnabled", c)} />
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Grace (minutes)" hint="Clocking in this late still counts as on time."><Input type="number" min={0} value={v.graceMinutes} onChange={(e) => set("graceMinutes", e.target.value)} /></Field>
           <Field label="Overtime counts after (minutes)" hint="Less extra time than this is ignored."><Input type="number" min={0} value={v.overtimeAfterMinutes} onChange={(e) => set("overtimeAfterMinutes", e.target.value)} /></Field>
@@ -60,7 +63,8 @@ function Rules({ data, onSaved }: { data: Data; onSaved: (m: string) => void }) 
         <div className="flex justify-end">
           <Button busy={fetching} onClick={async () => {
             const r = await save({ input: { enabled: v.enabled, graceMinutes: Number(v.graceMinutes) || 0, overtimeAfterMinutes: Number(v.overtimeAfterMinutes) || 0,
-              overtimeMultiplier: v.overtimeMultiplier || "1.5", requireLocation: v.requireLocation, payOvertime: v.payOvertime, deductAbsence: v.deductAbsence } });
+              overtimeMultiplier: v.overtimeMultiplier || "1.5", requireLocation: v.requireLocation, payOvertime: v.payOvertime, deductAbsence: v.deductAbsence,
+              timesheetsEnabled: v.timesheetsEnabled } });
             if (r.error) setProblem(errorMessage(r.error)); else { reset(); onSaved("Attendance settings saved."); }
           }}>Save</Button>
         </div>
@@ -139,7 +143,7 @@ function AssignDialog({ shift, people, onClose, onSaved }: { shift: Shift; peopl
 }
 
 export default function AttendanceSettingsPage() {
-  const [tab] = useSettingsTab(["rules", "shifts"] as const, "rules");
+  const [tab] = useSettingsTab(["rules", "shifts", "projects"] as const, "rules");
   const [{ data, error }, reload] = useQuery({ query: SetupDocument });
   const [saved, setSaved] = useState<string>();
   const [editing, setEditing] = useState<null | { shift: Shift | null } | { assign: Shift }>(null);
@@ -149,7 +153,7 @@ export default function AttendanceSettingsPage() {
   return (
     <>
       {saved && <Notice tone="success">{saved}</Notice>}
-      {tab === "rules" ? (
+      {tab === "projects" ? <ProjectsAdmin onSaved={setSaved} /> : tab === "rules" ? (
         <><SettingsIntro>Clocking in and out, lateness, overtime and how attendance feeds payroll.</SettingsIntro><Rules data={data} onSaved={refresh} /></>
       ) : (
         <>

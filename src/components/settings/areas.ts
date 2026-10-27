@@ -55,7 +55,7 @@ export const AREAS: SettingsArea[] = [
   },
   {
     href: "/settings/attendance", label: "Attendance", icon: faBusinessTime, permission: PERMS.attendanceManage,
-    tabs: [{ key: "rules", label: "Rules" }, { key: "shifts", label: "Shifts and roster" }],
+    tabs: [{ key: "rules", label: "Rules" }, { key: "shifts", label: "Shifts and roster" }, { key: "projects", label: "Projects" }],
   },
   { href: "/settings/performance", label: "Performance", icon: faChartLine, permission: PERMS.performanceManage },
   {
